@@ -24,7 +24,6 @@ cd uvapi
 Or manually:
 
 ```bash
-git submodule add https://github.com/adam-ikari/uvhttp.git deps/uvhttp
 git submodule update --init --recursive
 
 # Build UVHTTP
