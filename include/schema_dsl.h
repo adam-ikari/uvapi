@@ -1,152 +1,302 @@
 /**
- * @file cpp11_schema_final.h
- * @brief C++11 Schema DSL - 使用闭包捕获避免全局变量
+ * @file schema_dsl.h
+ * @brief Schema DSL - 自动计算字段偏移量的 Schema 定义系统
+ * 
+ * ## 概述
+ * 
+ * Schema DSL 提供了简洁、类型安全的 Schema 定义 API，通过成员指针自动计算字段偏移量，
+ * 避免手动指定 `offsetof`，减少错误并提高代码可维护性。
+ * 
+ * ## 特性
+ * 
+ * 1. **自动偏移量计算** - 编译器自动计算字段偏移量，无需手动指定
+ * 2. **类型安全** - 成员指针类型由编译器检查
+ * 3. **重构友好** - 字段顺序改变时无需手动修改偏移量
+ * 4. **链式 API** - 支持流式配置，代码简洁易读
+ * 5. **完整验证** - 支持必填/可选、长度、范围、正则、枚举等验证规则
+ * 
+ * ## 使用示例
+ * 
+ * @code
+ * #include "schema_dsl.h"
+ * 
+ * // 定义用户模型
+ * struct User {
+ *     int64_t id;
+ *     std::string username;
+ *     std::string email;
+ *     int age;
+ *     bool active;
+ * };
+ * 
+ * // 定义 Schema
+ * class UserSchema : public uvapi::DslBodySchema<User> {
+ * public:
+ *     void define() override {
+ *         // 使用成员指针，自动计算偏移量
+ *         this->field(&User::id, "id").asInt64().required();
+ *         this->field(&User::username, "username").asString().required()
+ *             .minLength(3).maxLength(20);
+ *         this->field(&User::email, "email").asString().required()
+ *             .pattern("^[^@]+@[^@]+$");
+ *         this->field(&User::age, "age").asInt().required()
+ *             .range(18, 120);
+ *         this->field(&User::active, "active").asBool().required();
+ *     }
+ * };
+ * 
+ * // 使用 Schema
+ * void createUser(const uvapi::Request& req) {
+ *     auto result = uvapi::parseBody<User>(req);
+ *     if (!result.success) {
+ *         return uvapi::badRequest(result.error);
+ *     }
+ *     
+ *     User user = result.instance;
+ *     // 处理用户创建逻辑...
+ *     
+ *     return uvapi::ok("User created", user);
+ * }
+ * @endcode
+ * 
+ * ## 支持的字段类型
+ * 
+ * **基础类型**:
+ * - **string()** - 字符串类型
+ * - **int8()** - 8位有符号整数（-128 ~ 127）
+ * - **int16()** - 16位有符号整数（-32768 ~ 32767）
+ * - **int32()** - 32位有符号整数（-2147483648 ~ 2147483647）
+ * - **int64()** - 64位有符号整数
+ * - **uint8()** - 8位无符号整数（0 ~ 255）
+ * - **uint16()** - 16位无符号整数（0 ~ 65535）
+ * - **uint32()** - 32位无符号整数（0 ~ 4294967295）
+ * - **uint64()** - 64位无符号整数
+ * - **fp32()** - 32位浮点数（单精度 float）
+ * - **fp64()** - 64位浮点数（双精度 double）
+ * - **boolean()** - 布尔类型
+ * 
+ * **高级数据类型**:
+ * - **date()** - 日期类型（YYYY-MM-DD），自动验证格式
+ * - **datetime()** - 日期时间类型（YYYY-MM-DD HH:MM:SS），自动验证格式
+ * - **email()** - 邮箱类型，自动验证邮箱格式
+ * - **url()** - URL 类型，自动验证 URL 格式
+ * - **uuid()** - UUID 类型，自动验证 UUID 格式
+ * 
+ * **复合类型**:
+ * - **array()** - 数组类型
+ * - **custom()** - 自定义类型，通过 ICustomTypeHandler 处理
+ * 
+ * ## 支持的验证规则
+ * 
+ * - **required() / optional()** - 必填/可选
+ * - **minLength() / maxLength() / length()** - 字符串长度
+ * - **min() / max() / range()** - 数值范围
+ * - **pattern()** - 正则表达式匹配
+ * - **oneOf()** - 枚举值
  */
 
-#ifndef CPP11_SCHEMA_FINAL_H
-#define CPP11_SCHEMA_FINAL_H
+#ifndef SCHEMA_DSL_H
+#define SCHEMA_DSL_H
 
-#include <string>
-#include <vector>
-#include <functional>
-#include <cstring>
-#include <cJSON.h>
+#include "framework.h"
+#include "builtin_types.h"
+#include <cstddef>
+#include <utility>
 
 namespace uvapi {
 
-// ========== 类型枚举 ==========
+// ========== Schema DSL ==========
 
-enum class FieldType {
-    STRING,
-    INT,
-    INT64,
-    FLOAT,
-    DOUBLE,
-    BOOL,
-    ARRAY,
-    OBJECT
-};
-
-// ========== 验证规则 ==========
-
-struct ValidationRules {
-    bool required;
-    bool has_min_length;
-    size_t min_length;
-    bool has_max_length;
-    size_t max_length;
-    bool has_min_value;
-    double min_value;
-    bool has_max_value;
-    double max_value;
-    std::string pattern;
-    std::vector<std::string> enum_values;
-    
-    ValidationRules()
-        : required(false), has_min_length(false), min_length(0),
-          has_max_length(false), max_length(0),
-          has_min_value(false), min_value(0),
-          has_max_value(false), max_value(0) {}
-    
-    void setMinLength(size_t len) {
-        has_min_length = true;
-        min_length = len;
-    }
-    
-    void setMaxLength(size_t len) {
-        has_max_length = true;
-        max_length = len;
-    }
-    
-    void setMinValue(double val) {
-        has_min_value = true;
-        min_value = val;
-    }
-    
-    void setMaxValue(double val) {
-        has_max_value = true;
-        max_value = val;
-    }
-    
-    void setPattern(const std::string& p) {
-        pattern = p;
-    }
-    
-    void setEnum(const std::vector<std::string>& vals) {
-        enum_values = vals;
-    }
-};
-
-// ========== 字段定义 ==========
-
-template<typename T>
-struct FieldDef {
-    std::string name;
-    FieldType type;
-    std::function<std::string(T*)> getter;
-    std::function<void(T*, const std::string&)> setter;
-    ValidationRules validation;
-    
-    FieldDef(const std::string& n, FieldType t,
-             const std::function<std::string(T*)>& g,
-             const std::function<void(T*, const std::string&)>& s)
-        : name(n), type(t), getter(g), setter(s) {}
-};
-
-// ========== Schema 类 ==========
-
+// Schema 定义器（自动计算偏移量）
 template<typename T>
 class Schema {
 private:
-    std::vector<FieldDef<T>> fields_;
-    std::function<std::string(T*)> custom_validator_;  // 自定义整体校验函数
+    std::vector<FieldDefinition> fields_;
     
 public:
     Schema() {}
     
-    // 字段定义方法
-    Schema& string(const std::string& name, std::string T::*member) {
-        fields_.push_back(FieldDef<T>(name, FieldType::STRING,
-            [member](T* obj) { return obj->*member; },
-            [member](T* obj, const std::string& val) { obj->*member = val; }));
-        return *this;
-    }
+    // ========== 字段定义方法 ==========
+    // 这些方法自动计算字段偏移量
+        
+        // 字符串字段
+        Schema& string(std::string T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::STRING, offset));
+            return *this;
+        }
+        
+        // 8位整数字段
+        Schema& int8(int8_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::INT8, offset));
+            return *this;
+        }
+        
+        // 16位整数字段
+        Schema& int16(int16_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::INT16, offset));
+            return *this;
+        }
+        
+        // 32位整数字段
+        Schema& int32(int32_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::INT32, offset));
+            return *this;
+        }
+        
+        // 64位整数字段
+        Schema& int64(int64_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::INT64, offset));
+            return *this;
+        }
+        
+        // 8位无符号整数字段
+        Schema& uint8(uint8_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::UINT8, offset));
+            return *this;
+        }
+        
+        // 16位无符号整数字段
+        Schema& uint16(uint16_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::UINT16, offset));
+            return *this;
+        }
+        
+        // 32位无符号整数字段
+        Schema& uint32(uint32_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::UINT32, offset));
+            return *this;
+        }
+        
+        // 64位无符号整数字段
+        Schema& uint64(uint64_t T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::UINT64, offset));
+            return *this;
+        }
+        
+        // 32位浮点数字段
+        Schema& fp32(float T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::FP32, offset));
+            return *this;
+        }
+        
+        // 64位浮点数字段
+        Schema& fp64(double T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::FP64, offset));
+            return *this;
+        }
+        
+        // 布尔字段
+        Schema& boolean(bool T::*field, const std::string& name) {
+            size_t offset = getMemberOffset(field);
+            fields_.push_back(FieldDefinition(name, FieldType::BOOL, offset));
+            return *this;
+        }
+        
+        // 数组字段（使用 std::vector）
+            template<typename U>
+            Schema& array(std::vector<U> T::*field, const std::string& name) {
+                size_t offset = getMemberOffset(field);
+                fields_.push_back(FieldDefinition(name, FieldType::ARRAY, offset));
+                return *this;
+            }
+            
+            // 带元素类型的数组字段定义
+            template<typename U>
+            Schema& arrayOf(std::vector<U> T::*field, const std::string& name, FieldType element_type) {
+                size_t offset = getMemberOffset(field);
+                FieldDefinition def(name, FieldType::ARRAY, offset);
+                def.element_type = element_type;  // 存储元素类型
+                fields_.push_back(def);
+                return *this;
+            }
+            
+            // 字符串数组
+            Schema& arrayOfString(std::vector<std::string> T::*field, const std::string& name) {
+                return arrayOf(field, name, FieldType::STRING);
+            }
+            
+            // 整数数组
+            Schema& arrayOfInt(std::vector<int32_t> T::*field, const std::string& name) {
+                return arrayOf(field, name, FieldType::INT32);
+            }
+            
+            // 64位整数数组
+            Schema& arrayOfInt64(std::vector<int64_t> T::*field, const std::string& name) {
+                return arrayOf(field, name, FieldType::INT64);
+            }
+            
+            // 浮点数数组
+            Schema& arrayOfNumber(std::vector<double> T::*field, const std::string& name) {
+                return arrayOf(field, name, FieldType::FP64);
+            }
+            
+            // 布尔数组
+            Schema& arrayOfBool(std::vector<bool> T::*field, const std::string& name) {
+                return arrayOf(field, name, FieldType::BOOL);
+            }            
+            // ========== 高级数据类型 ==========
+            
+            // 日期类型（YYYY-MM-DD）
+            Schema& date(std::string T::*field, const std::string& name) {
+                size_t offset = getMemberOffset(field);
+                fields_.push_back(FieldDefinition(name, FieldType::DATE, offset));
+                return *this;
+            }
+            
+            // 日期时间类型（YYYY-MM-DD HH:MM:SS）
+            Schema& datetime(std::string T::*field, const std::string& name) {
+                size_t offset = getMemberOffset(field);
+                fields_.push_back(FieldDefinition(name, FieldType::DATETIME, offset));
+                return *this;
+            }
+            
+            // 邮箱类型
+            Schema& email(std::string T::*field, const std::string& name) {
+                size_t offset = getMemberOffset(field);
+                fields_.push_back(FieldDefinition(name, FieldType::EMAIL, offset));
+                return *this;
+            }
+            
+            // URL 类型
+            Schema& url(std::string T::*field, const std::string& name) {
+                size_t offset = getMemberOffset(field);
+                fields_.push_back(FieldDefinition(name, FieldType::URL, offset));
+                return *this;
+            }
+            
+            // UUID 类型
+            Schema& uuid(std::string T::*field, const std::string& name) {
+                size_t offset = getMemberOffset(field);
+                fields_.push_back(FieldDefinition(name, FieldType::UUID, offset));
+                return *this;
+            }
+            
+            // 自定义类型
+                Schema& custom(std::string T::*field, const std::string& name, ICustomTypeHandler* handler) {
+                    size_t offset = getMemberOffset(field);
+                    FieldDefinition def(name, FieldType::CUSTOM, offset);
+                    def.custom_handler = handler;
+                    fields_.push_back(def);
+                    return *this;
+                }        }
+        
+        Schema& number(double T::*field, const std::string& name) {
+            return fp64(field, name);
+        }    
+    // ========== 链式配置方法 ==========
     
-    Schema& integer(const std::string& name, int T::*member) {
-        fields_.push_back(FieldDef<T>(name, FieldType::INT,
-            [member](T* obj) { return std::to_string(obj->*member); },
-            [member](T* obj, const std::string& val) { obj->*member = std::stoi(val); }));
-        return *this;
-    }
-    
-    Schema& integer64(const std::string& name, int64_t T::*member) {
-        fields_.push_back(FieldDef<T>(name, FieldType::INT64,
-            [member](T* obj) { return std::to_string(obj->*member); },
-            [member](T* obj, const std::string& val) { obj->*member = std::stoll(val); }));
-        return *this;
-    }
-    
-    Schema& number(const std::string& name, double T::*member) {
-        fields_.push_back(FieldDef<T>(name, FieldType::DOUBLE,
-            [member](T* obj) { return std::to_string(obj->*member); },
-            [member](T* obj, const std::string& val) { obj->*member = std::stod(val); }));
-        return *this;
-    }
-    
-    Schema& boolean(const std::string& name, bool T::*member) {
-        fields_.push_back(FieldDef<T>(name, FieldType::BOOL,
-            [member](T* obj) { return obj->*member ? "true" : "false"; },
-            [member](T* obj, const std::string& val) { obj->*member = (val == "true" || val == "1"); }));
-        return *this;
-    }
-    
-    // 设置自定义整体校验函数（通过闭包捕获 this）
-    Schema& validateBody(std::function<std::string(T*)> validator) {
-        custom_validator_ = validator;
-        return *this;
-    }
-    
-    // 验证规则
+    // 必填
     Schema& required() {
         if (!fields_.empty()) {
             fields_.back().validation.required = true;
@@ -154,458 +304,476 @@ public:
         return *this;
     }
     
-    Schema& length(size_t min_len, size_t max_len) {
+    // 可选
+    Schema& optional() {
         if (!fields_.empty()) {
-            fields_.back().validation.setMinLength(min_len);
-            fields_.back().validation.setMaxLength(max_len);
+            fields_.back().validation.required = false;
         }
         return *this;
     }
     
-    Schema& minLength(size_t len) {
+    // 最小长度
+    Schema& minLength(int len) {
         if (!fields_.empty()) {
-            fields_.back().validation.setMinLength(len);
+            fields_.back().validation.min_length = len;
+            fields_.back().validation.has_min_length = true;
         }
         return *this;
     }
     
-    Schema& maxLength(size_t len) {
+    // 最大长度
+    Schema& maxLength(int len) {
         if (!fields_.empty()) {
-            fields_.back().validation.setMaxLength(len);
+            fields_.back().validation.max_length = len;
+            fields_.back().validation.has_max_length = true;
         }
         return *this;
     }
     
-    Schema& range(double min_val, double max_val) {
-        if (!fields_.empty()) {
-            fields_.back().validation.setMinValue(min_val);
-            fields_.back().validation.setMaxValue(max_val);
-        }
-        return *this;
+    // 长度范围
+    Schema& length(int min_len, int max_len) {
+        return minLength(min_len).maxLength(max_len);
     }
     
+    // 最小值
     Schema& min(double val) {
         if (!fields_.empty()) {
-            fields_.back().validation.setMinValue(val);
+            fields_.back().validation.min_value = val;
+            fields_.back().validation.has_min_value = true;
         }
         return *this;
     }
     
+    // 最大值
     Schema& max(double val) {
         if (!fields_.empty()) {
-            fields_.back().validation.setMaxValue(val);
+            fields_.back().validation.max_value = val;
+            fields_.back().validation.has_max_value = true;
         }
         return *this;
     }
     
-    Schema& pattern(const std::string& p) {
+    // 数值范围
+    Schema& range(double min_val, double max_val) {
+        return min(min_val).max(max_val);
+    }
+    
+    // 正则表达式
+    Schema& pattern(const std::string& regex) {
         if (!fields_.empty()) {
-            fields_.back().validation.setPattern(p);
+            fields_.back().validation.pattern = regex;
+            fields_.back().validation.has_pattern = true;
         }
         return *this;
     }
     
-    Schema& oneOf(const std::vector<std::string>& vals) {
+    // 枚举值
+    Schema& oneOf(const std::vector<std::string>& values) {
         if (!fields_.empty()) {
-            fields_.back().validation.setEnum(vals);
+            fields_.back().validation.enum_values = values;
+            fields_.back().validation.has_enum = true;
         }
         return *this;
     }
     
-    // 单个字段校验方法（供用户在重载的 validateBody 中逐个调用）
-    std::string validateField(const std::string& field_name, T* obj) const {
-        for (typename std::vector<FieldDef<T>>::const_iterator it = fields_.begin();
-             it != fields_.end(); ++it) {
-            const FieldDef<T>& field = *it;
-            if (field.name == field_name) {
-                std::string value = field.getter(obj);
-                
-                // 创建临时 cJSON 对象用于验证
-                cJSON* item = nullptr;
-                switch (field.type) {
-                    case FieldType::STRING:
-                        item = cJSON_CreateString(value.c_str());
-                        break;
-                    case FieldType::INT:
-                        item = cJSON_CreateNumber(std::stoi(value));
-                        break;
-                    case FieldType::INT64:
-                        item = cJSON_CreateNumber(std::stoll(value));
-                        break;
-                    case FieldType::FLOAT:
-                        item = cJSON_CreateNumber(std::stof(value));
-                        break;
-                    case FieldType::DOUBLE:
-                        item = cJSON_CreateNumber(std::stod(value));
-                        break;
-                    case FieldType::BOOL:
-                        item = cJSON_CreateBool(value == "true" || value == "1");
-                        break;
-                    default:
-                        item = cJSON_CreateString(value.c_str());
-                        break;
-                }
-                
-                if (item) {
-                    std::string error = validateField(item, field);
-                    cJSON_Delete(item);
-                    return error;
-                }
-                return "Failed to create validation item";
-            }
-        }
-        return "Field '" + field_name + "' not found in schema";
+    // 枚举值（可变参数）
+    Schema& oneOf(const std::string& v1, const std::string& v2 = "", 
+                    const std::string& v3 = "", const std::string& v4 = "") {
+        std::vector<std::string> values;
+        if (!v1.empty()) values.push_back(v1);
+        if (!v2.empty()) values.push_back(v2);
+        if (!v3.empty()) values.push_back(v3);
+        if (!v4.empty()) values.push_back(v4);
+        return oneOf(values);
     }
     
-    // 字段校验方法（供 validateBody 调用）
-    std::string validateFields(T* obj) const {
-        std::string json_str = toJson(obj);
-        cJSON* json = cJSON_Parse(json_str.c_str());
-        if (!json || !cJSON_IsObject(json)) {
-            if (json) cJSON_Delete(json);
-            return "Failed to serialize object to JSON";
-        }
-        
-        for (typename std::vector<FieldDef<T>>::const_iterator it = fields_.begin();
-             it != fields_.end(); ++it) {
-            const FieldDef<T>& field = *it;
-            std::string value = field.getter(obj);
-            
-            // 创建临时 cJSON 对象用于验证
-            cJSON* item = nullptr;
-            switch (field.type) {
-                case FieldType::STRING:
-                    item = cJSON_CreateString(value.c_str());
-                    break;
-                case FieldType::INT:
-                    item = cJSON_CreateNumber(std::stoi(value));
-                    break;
-                case FieldType::INT64:
-                    item = cJSON_CreateNumber(std::stoll(value));
-                    break;
-                case FieldType::FLOAT:
-                    item = cJSON_CreateNumber(std::stof(value));
-                    break;
-                case FieldType::DOUBLE:
-                    item = cJSON_CreateNumber(std::stod(value));
-                    break;
-                case FieldType::BOOL:
-                    item = cJSON_CreateBool(value == "true" || value == "1");
-                    break;
-                default:
-                    item = cJSON_CreateString(value.c_str());
-                    break;
-            }
-            
-            if (item) {
-                std::string error = validateField(item, field);
-                if (!error.empty()) {
-                    cJSON_Delete(item);
-                    cJSON_Delete(json);
-                    return error;
-                }
-                cJSON_Delete(item);
-            }
-        }
-        
-        cJSON_Delete(json);
-        return "";
-    }
-    
-    // 序列化
-    std::string toJson(T* obj) const {
-        cJSON* root = cJSON_CreateObject();
-        if (!root) return "{}";
-        
-        for (typename std::vector<FieldDef<T>>::const_iterator it = fields_.begin();
-             it != fields_.end(); ++it) {
-            const FieldDef<T>& field = *it;
-            std::string value = field.getter(obj);
-            
-            cJSON* item = nullptr;
-            switch (field.type) {
-                case FieldType::STRING:
-                    item = cJSON_CreateString(value.c_str());
-                    break;
-                case FieldType::INT:
-                    item = cJSON_CreateNumber(std::stoi(value));
-                    break;
-                case FieldType::INT64:
-                    item = cJSON_CreateNumber(std::stoll(value));
-                    break;
-                case FieldType::FLOAT:
-                    item = cJSON_CreateNumber(std::stof(value));
-                    break;
-                case FieldType::DOUBLE:
-                    item = cJSON_CreateNumber(std::stod(value));
-                    break;
-                case FieldType::BOOL:
-                    item = cJSON_CreateBool(value == "true" || value == "1");
-                    break;
-                default:
-                    item = cJSON_CreateString(value.c_str());
-                    break;
-            }
-            
-            if (item) {
-                cJSON_AddItemToObject(root, field.name.c_str(), item);
-            }
-        }
-        
-        char* json = cJSON_Print(root);
-        std::string result(json ? json : "{}");
-        if (json) free(json);
-        cJSON_Delete(root);
-        
-        return result;
-    }
-    
-    // 反序列化
-    bool fromJson(const std::string& json_str, T* obj) const {
-        cJSON* json = cJSON_Parse(json_str.c_str());
-        if (!json || !cJSON_IsObject(json)) {
-            if (json) cJSON_Delete(json);
-            return false;
-        }
-        
-        for (typename std::vector<FieldDef<T>>::const_iterator it = fields_.begin();
-             it != fields_.end(); ++it) {
-            const FieldDef<T>& field = *it;
-            cJSON* item = cJSON_GetObjectItem(json, field.name.c_str());
-            
-            if (item) {
-                const char* value = nullptr;
-                if (cJSON_IsString(item)) {
-                    value = item->valuestring;
-                } else if (cJSON_IsNumber(item)) {
-                    char buf[64];
-                    snprintf(buf, sizeof(buf), "%g", item->valuedouble);
-                    value = buf;
-                } else if (cJSON_IsBool(item)) {
-                    value = cJSON_IsTrue(item) ? "true" : "false";
-                }
-                
-                if (value) {
-                    field.setter(obj, value);
-                }
-            }
-        }
-        
-        cJSON_Delete(json);
-        return true;
-    }
-    
-    // 验证 JSON 字符串
-    std::string validate(const std::string& json_str) const {
-        // 1. 解析 JSON
-        cJSON* json = cJSON_Parse(json_str.c_str());
-        if (!json || !cJSON_IsObject(json)) {
-            if (json) cJSON_Delete(json);
-            return "Invalid JSON object";
-        }
-        
-        // 2. 字段级校验
-        for (typename std::vector<FieldDef<T>>::const_iterator it = fields_.begin();
-             it != fields_.end(); ++it) {
-            const FieldDef<T>& field = *it;
-            cJSON* item = cJSON_GetObjectItem(json, field.name.c_str());
-            
-            // 检查必填字段
-            if (field.validation.required && !item) {
-                cJSON_Delete(json);
-                return "Field '" + field.name + "' is required";
-            }
-            
-            if (!item) continue;
-            
-            // 验证字段值
-            std::string error = validateField(item, field);
-            if (!error.empty()) {
-                cJSON_Delete(json);
-                return error;
-            }
-        }
-        
-        cJSON_Delete(json);
-        
-        // 3. 反序列化到对象
-        T obj;
-        bool success = fromJson(json_str, &obj);
-        if (!success) {
-            return "Failed to parse JSON to object";
-        }
-        
-        // 4. 整体校验
-        return validateBody(&obj);
-    }
-    
-    // 整体校验入口函数
-    std::string validateBody(T* obj) const {
-        // 如果有自定义校验函数，使用自定义校验
-        if (custom_validator_) {
-            return custom_validator_(obj);
-        }
-        
-        // 默认实现：调用字段校验
-        return validateFields(obj);
-    }
-    
-    // 直接验证对象（性能优化：避免序列化再解析）
-    std::string validateObject(T* obj) const {
-        // 1. 字段级校验（直接从对象读取）
-        for (typename std::vector<FieldDef<T>>::const_iterator it = fields_.begin();
-             it != fields_.end(); ++it) {
-            const FieldDef<T>& field = *it;
-            std::string value = field.getter(obj);
-            
-            // 检查必填字段
-            if (field.validation.required && value.empty()) {
-                return "Field '" + field.name + "' is required";
-            }
-            
-            if (value.empty()) continue;
-            
-            // 验证字段值
-            std::string error = validateObjectField(value, field);
-            if (!error.empty()) {
-                return error;
-            }
-        }
-        
-        // 2. 整体校验
-        return validateBody(obj);
+    // 获取字段定义
+    const std::vector<FieldDefinition>& fields() const {
+        return fields_;
     }
     
 private:
-    std::string validateField(cJSON* item, const FieldDef<T>& field) const {
-        const char* value = nullptr;
-        
-        if (cJSON_IsString(item)) {
-            value = item->valuestring;
-            size_t len = strlen(value);
-            
-            if (field.validation.has_min_length && len < field.validation.min_length) {
-                return "Field '" + field.name + "' must be at least " + 
-                       std::to_string(field.validation.min_length) + " characters";
-            }
-            
-            if (field.validation.has_max_length && len > field.validation.max_length) {
-                return "Field '" + field.name + "' must be at most " + 
-                       std::to_string(field.validation.max_length) + " characters";
-            }
-            
-            // 枚举验证
-            if (!field.validation.enum_values.empty()) {
-                bool found = false;
-                for (size_t i = 0; i < field.validation.enum_values.size(); ++i) {
-                    if (field.validation.enum_values[i] == value) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    return "Field '" + field.name + "' must be one of: " + 
-                           joinEnumValues(field.validation.enum_values);
-                }
-            }
-        } else if (cJSON_IsNumber(item)) {
-            double num = item->valuedouble;
-            
-            if (field.validation.has_min_value && num < field.validation.min_value) {
-                return "Field '" + field.name + "' must be at least " + 
-                       std::to_string(field.validation.min_value);
-            }
-            
-            if (field.validation.has_max_value && num > field.validation.max_value) {
-                return "Field '" + field.name + "' must be at most " + 
-                       std::to_string(field.validation.max_value);
-            }
-        }
-        
-        return "";
-    }
-    
-    // 验证对象字段（性能优化：直接验证字符串值）
-    std::string validateObjectField(const std::string& value, const FieldDef<T>& field) const {
-        size_t len = value.length();
-        
-        // 字符串类型验证
-        if (field.type == FieldType::STRING) {
-            if (field.validation.has_min_length && len < field.validation.min_length) {
-                return "Field '" + field.name + "' must be at least " + 
-                       std::to_string(field.validation.min_length) + " characters";
-            }
-            
-            if (field.validation.has_max_length && len > field.validation.max_length) {
-                return "Field '" + field.name + "' must be at most " + 
-                       std::to_string(field.validation.max_length) + " characters";
-            }
-            
-            // 枚举验证
-            if (!field.validation.enum_values.empty()) {
-                bool found = false;
-                for (size_t i = 0; i < field.validation.enum_values.size(); ++i) {
-                    if (field.validation.enum_values[i] == value) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    return "Field '" + field.name + "' must be one of: " + 
-                           joinEnumValues(field.validation.enum_values);
-                }
-            }
-        }
-        // 数值类型验证
-        else if (field.type == FieldType::INT || field.type == FieldType::INT64 ||
-                 field.type == FieldType::FLOAT || field.type == FieldType::DOUBLE) {
-            double num = 0.0;
-            try {
-                if (field.type == FieldType::INT) {
-                    num = static_cast<double>(std::stoi(value));
-                } else if (field.type == FieldType::INT64) {
-                    num = static_cast<double>(std::stoll(value));
-                } else if (field.type == FieldType::FLOAT) {
-                    num = static_cast<double>(std::stof(value));
-                } else {
-                    num = std::stod(value);
-                }
-            } catch (...) {
-                return "Field '" + field.name + "' must be a valid number";
-            }
-            
-            if (field.validation.has_min_value && num < field.validation.min_value) {
-                return "Field '" + field.name + "' must be at least " + 
-                       std::to_string(field.validation.min_value);
-            }
-            
-            if (field.validation.has_max_value && num > field.validation.max_value) {
-                return "Field '" + field.name + "' must be at most " + 
-                       std::to_string(field.validation.max_value);
-            }
-        }
-        
-        return "";
-    }
-    
-    std::string joinEnumValues(const std::vector<std::string>& values) const {
-        if (values.empty()) return "";
-        
-        std::string result = values[0];
-        for (size_t i = 1; i < values.size(); ++i) {
-            result += ", " + values[i];
-        }
-        return result;
+    // 计算成员指针的偏移量
+    template<typename MemberType>
+    static size_t getMemberOffset(MemberType T::*field) {
+        // 使用 nullptr 获取偏移量
+        return reinterpret_cast<size_t>(&(reinterpret_cast<T*>(0)->*field));
     }
 };
 
-// ========== Schema 构建器辅助函数 ==========
+// ========== DslBodySchema 扩展 ==========
 
+// 基类 Schema 定义器
 template<typename T>
-Schema<T> makeSchema() {
-    return Schema<T>();
-}
+class DslBodySchema : public BodySchemaBase {
+public:
+    DslBodySchema() : BodySchemaBase(typeid(T).name()) {}
+    
+    // 字段定义辅助方法
+    DslBodySchema& field(std::string T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::STRING, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(int8_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::INT8, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(int16_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::INT16, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(int32_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::INT32, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(int64_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::INT64, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(uint8_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::UINT8, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(uint16_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::UINT16, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(uint32_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::UINT32, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(uint64_t T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::UINT64, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(float T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::FP32, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(double T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::FP64, offset);
+        return *this;
+    }
+    
+    DslBodySchema& field(bool T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::BOOL, offset);
+        return *this;
+    }
+    
+    template<typename U>
+    DslBodySchema& field(std::vector<U> T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::ARRAY, offset);
+        return *this;
+    }
+    
+    // 兼容旧代码
+    DslBodySchema& field(int T::*member, const std::string& name) {
+        return field((int32_t T::*)member, name);
+    }
+    
+    // ========== 高级数据类型字段定义 ==========
+    
+    DslBodySchema& fieldDate(std::string T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::DATE, offset);
+        return *this;
+    }
+    
+    DslBodySchema& fieldDatetime(std::string T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::DATETIME, offset);
+        return *this;
+    }
+    
+    DslBodySchema& fieldEmail(std::string T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::EMAIL, offset);
+        return *this;
+    }
+    
+    DslBodySchema& fieldUrl(std::string T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::URL, offset);
+        return *this;
+    }
+    
+    DslBodySchema& fieldUuid(std::string T::*member, const std::string& name) {
+        size_t offset = getMemberOffset(member);
+        addField(name, FieldType::UUID, offset);
+        return *this;
+    }
+    
+    DslBodySchema& fieldCustom(std::string T::*member, const std::string& name, ICustomTypeHandler* handler) {
+        size_t offset = getMemberOffset(member);
+        FieldDefinition def(name, FieldType::CUSTOM, offset);
+        def.custom_handler = handler;
+        if (fields_.empty()) {
+            fields_.push_back(def);
+        } else {
+            fields_.back() = def;
+        }
+        return *this;
+    }
+    
+    // 类型转换辅助方法
+    DslBodySchema& asString() {
+        setFieldType(FieldType::STRING);
+        return *this;
+    }
+    
+    DslBodySchema& asInt8() {
+        setFieldType(FieldType::INT8);
+        return *this;
+    }
+    
+    DslBodySchema& asInt16() {
+        setFieldType(FieldType::INT16);
+        return *this;
+    }
+    
+    DslBodySchema& asInt32() {
+        setFieldType(FieldType::INT32);
+        return *this;
+    }
+    
+    DslBodySchema& asInt64() {
+        setFieldType(FieldType::INT64);
+        return *this;
+    }
+    
+    DslBodySchema& asUint8() {
+        setFieldType(FieldType::UINT8);
+        return *this;
+    }
+    
+    DslBodySchema& asUint16() {
+        setFieldType(FieldType::UINT16);
+        return *this;
+    }
+    
+    DslBodySchema& asUint32() {
+        setFieldType(FieldType::UINT32);
+        return *this;
+    }
+    
+    DslBodySchema& asUint64() {
+        setFieldType(FieldType::UINT64);
+        return *this;
+    }
+    
+    DslBodySchema& asFp32() {
+        setFieldType(FieldType::FP32);
+        return *this;
+    }
+    
+    DslBodySchema& asFp64() {
+        setFieldType(FieldType::FP64);
+        return *this;
+    }
+    
+    DslBodySchema& asBool() {
+        setFieldType(FieldType::BOOL);
+        return *this;
+    }
+    
+    // 兼容旧代码
+    DslBodySchema& asInt() {
+        return asInt32();
+    }
+    
+    DslBodySchema& asNumber() {
+        return asFp64();
+    }
+    
+    // ========== 高级数据类型转换 ==========
+    
+    DslBodySchema& asDate() {
+        setFieldType(FieldType::DATE);
+        return *this;
+    }
+    
+    DslBodySchema& asDatetime() {
+        setFieldType(FieldType::DATETIME);
+        return *this;
+    }
+    
+    DslBodySchema& asEmail() {
+        setFieldType(FieldType::EMAIL);
+        return *this;
+    }
+    
+    DslBodySchema& asUrl() {
+        setFieldType(FieldType::URL);
+        return *this;
+    }
+    
+    DslBodySchema& asUuid() {
+        setFieldType(FieldType::UUID);
+        return *this;
+    }
+    
+    DslBodySchema& asCustom(ICustomTypeHandler* handler) {
+        setFieldType(FieldType::CUSTOM);
+        if (!fields_.empty()) {
+            fields_.back().custom_handler = handler;
+        }
+        return *this;
+    }
+    
+    // 验证规则
+    DslBodySchema& required() {
+        setRequired(true);
+        return *this;
+    }
+    
+    DslBodySchema& optional() {
+        setRequired(false);
+        return *this;
+    }
+    
+    DslBodySchema& minLength(int len) {
+        setMinLength(len);
+        return *this;
+    }
+    
+    DslBodySchema& maxLength(int len) {
+        setMaxLength(len);
+        return *this;
+    }
+    
+    DslBodySchema& length(int min_len, int max_len) {
+        return minLength(min_len).maxLength(max_len);
+    }
+    
+    DslBodySchema& min(double val) {
+        setMinValue(val);
+        return *this;
+    }
+    
+    DslBodySchema& max(double val) {
+        setMaxValue(val);
+        return *this;
+    }
+    
+    DslBodySchema& range(double min_val, double max_val) {
+        return min(min_val).max(max_val);
+    }
+    
+    DslBodySchema& pattern(const std::string& regex) {
+        setPattern(regex);
+        return *this;
+    }
+    
+    DslBodySchema& oneOf(const std::vector<std::string>& values) {
+        setEnumValues(values);
+        return *this;
+    }
+    
+    DslBodySchema& oneOf(const std::string& v1, const std::string& v2 = "", 
+                          const std::string& v3 = "", const std::string& v4 = "") {
+        std::vector<std::string> values;
+        if (!v1.empty()) values.push_back(v1);
+        if (!v2.empty()) values.push_back(v2);
+        if (!v3.empty()) values.push_back(v3);
+        if (!v4.empty()) values.push_back(v4);
+        return oneOf(values);
+    }
+    
+private:
+    template<typename MemberType>
+    static size_t getMemberOffset(MemberType T::*field) {
+        return reinterpret_cast<size_t>(&(reinterpret_cast<T*>(0)->*field));
+    }
+    
+    void addField(const std::string& name, FieldType type, size_t offset) {
+        if (fields_.empty()) {
+            fields_.push_back(FieldDefinition(name, type, offset));
+        } else {
+            // 更新最后一个字段的类型
+            fields_.back().name = name;
+            fields_.back().type = type;
+            fields_.back().offset = offset;
+        }
+    }
+    
+    void setFieldType(FieldType type) {
+        if (!fields_.empty()) {
+            fields_.back().type = type;
+        }
+    }
+    
+    void setRequired(bool required) {
+        if (!fields_.empty()) {
+            fields_.back().validation.required = required;
+        }
+    }
+    
+    void setMinLength(int len) {
+        if (!fields_.empty()) {
+            fields_.back().validation.min_length = len;
+            fields_.back().validation.has_min_length = true;
+        }
+    }
+    
+    void setMaxLength(int len) {
+        if (!fields_.empty()) {
+            fields_.back().validation.max_length = len;
+            fields_.back().validation.has_max_length = true;
+        }
+    }
+    
+    void setMinValue(double val) {
+        if (!fields_.empty()) {
+            fields_.back().validation.min_value = val;
+            fields_.back().validation.has_min_value = true;
+        }
+    }
+    
+    void setMaxValue(double val) {
+        if (!fields_.empty()) {
+            fields_.back().validation.max_value = val;
+            fields_.back().validation.has_max_value = true;
+        }
+    }
+    
+    void setPattern(const std::string& regex) {
+        if (!fields_.empty()) {
+            fields_.back().validation.pattern = regex;
+            fields_.back().validation.has_pattern = true;
+        }
+    }
+    
+    void setEnumValues(const std::vector<std::string>& values) {
+        if (!fields_.empty()) {
+            fields_.back().validation.enum_values = values;
+            fields_.back().validation.has_enum = true;
+        }
+    }
+};
 
 } // namespace uvapi
 
-#endif // CPP11_SCHEMA_FINAL_H
+#endif // SCHEMA_DSL_H

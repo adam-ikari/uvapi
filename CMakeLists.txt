@@ -28,7 +28,8 @@ link_directories(
     ${PROJECT_ROOT}/deps/uvhttp/deps/libuv/build
     ${PROJECT_ROOT}/deps/uvhttp/deps/cjson/build
     ${PROJECT_ROOT}/deps/uvhttp/deps/cllhttp/build
-    ${PROJECT_ROOT}/deps/uvhttp/deps/mbedtls/library
+    ${PROJECT_ROOT}/deps/uvhttp/deps/mbedtls/build/library
+    ${PROJECT_ROOT}/deps/uvhttp/deps/mimalloc/build
     ${PROJECT_ROOT}/deps/uvhttp/build/dist/lib
     ${PROJECT_ROOT}/deps/uvhttp/dist/lib
 )
@@ -37,18 +38,70 @@ link_directories(
 add_executable(benchmark_server
     examples/benchmark_server.cpp
     src/framework_uvhttp.cpp
+    src/multipart.cpp
 )
 
 # 多服务器测试
 add_executable(test_multi_server
     examples/test_multi_server.cpp
     src/framework_uvhttp.cpp
+    src/multipart.cpp
 )
 
 # 测试服务器
 add_executable(test_server
     examples/test_server.cpp
     src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# CRUD 服务器示例
+add_executable(crud_server
+    examples/crud_server.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# 认证服务器示例
+add_executable(auth_server
+    examples/auth_server.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# 参数示例
+add_executable(params_example
+    examples/params_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# UVHTTP 中间件示例
+add_executable(uvhttp_middleware_example
+    examples/uvhttp_middleware_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# DSL 示例
+add_executable(dsl_example
+    examples/dsl_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# Schema 示例
+add_executable(schema_example
+    examples/schema_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# 文件上传示例
+add_executable(upload_example
+    examples/upload_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
 )
 
 # 链接库
@@ -61,6 +114,7 @@ target_link_libraries(benchmark_server
     mbedtls
     mbedx509
     mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -75,6 +129,7 @@ target_link_libraries(test_multi_server
     mbedtls
     mbedx509
     mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -89,6 +144,112 @@ target_link_libraries(test_server
     mbedtls
     mbedx509
     mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(crud_server
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(auth_server
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(params_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(uvhttp_middleware_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(dsl_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(schema_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(upload_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -98,3 +259,10 @@ target_link_libraries(test_server
 target_compile_options(benchmark_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(test_multi_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(test_server PRIVATE -Wall -Wextra -O2)
+target_compile_options(crud_server PRIVATE -Wall -Wextra -O2)
+target_compile_options(auth_server PRIVATE -Wall -Wextra -O2)
+target_compile_options(params_example PRIVATE -Wall -Wextra -O2)
+target_compile_options(uvhttp_middleware_example PRIVATE -Wall -Wextra -O2)
+target_compile_options(dsl_example PRIVATE -Wall -Wextra -O2)
+target_compile_options(schema_example PRIVATE -Wall -Wextra -O2)
+target_compile_options(upload_example PRIVATE -Wall -Wextra -O2)

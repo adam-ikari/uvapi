@@ -52,18 +52,50 @@ struct ValidationResult {
 
 // ========== Body 序列化和反序列化 ==========
 
-// 字段类型枚举
-enum class FieldType {
-    STRING,
-    INT,
-    INT64,
-    FLOAT,
-    DOUBLE,
-    BOOL,
-    ARRAY,
-    OBJECT,
-    CUSTOM
+// 自定义类型处理器接口
+class ICustomTypeHandler {
+public:
+    virtual ~ICustomTypeHandler() {}
+    
+    // 序列化：从实例转换为 JSON 字符串
+    virtual std::string serialize(void* instance, size_t offset) const = 0;
+    
+    // 反序列化：从 JSON 值转换为实例
+    virtual bool deserialize(const cJSON* json, void* instance, size_t offset, std::string& error) const = 0;
+    
+    // 验证：验证 JSON 值
+    virtual std::string validate(const cJSON* json) const = 0;
 };
+
+// 字段类型枚举（使用标准的整数和浮点数位宽命名）
+enum class FieldType {
+    STRING,      // 字符串类型
+    INT8,        // 8位有符号整数（-128 ~ 127）
+    INT16,       // 16位有符号整数（-32768 ~ 32767）
+    INT32,       // 32位有符号整数（-2147483648 ~ 2147483647）
+    INT64,       // 64位有符号整数
+    UINT8,       // 8位无符号整数（0 ~ 255）
+    UINT16,      // 16位无符号整数（0 ~ 65535）
+    UINT32,      // 32位无符号整数（0 ~ 4294967295）
+    UINT64,      // 64位无符号整数
+    FP32,        // 32位浮点数（单精度 float）
+    FP64,        // 64位浮点数（双精度 double）
+    BOOL,        // 布尔值
+    DATE,        // 日期类型（YYYY-MM-DD）
+    DATETIME,    // 日期时间类型（YYYY-MM-DD HH:MM:SS）
+    EMAIL,       // 邮箱类型（自动验证邮箱格式）
+    URL,         // URL 类型（自动验证 URL 格式）
+    UUID,        // UUID 类型（自动验证 UUID 格式）
+    ARRAY,       // 数组类型
+    OBJECT,      // 对象类型
+    CUSTOM       // 自定义类型（通过 ICustomTypeHandler 处理）
+};
+
+// 兼容旧代码的类型别名（标记为已弃用）
+using INT = INT32;
+using INT64_TYPE = INT64;
+using FLOAT = FP32;
+using DOUBLE = FP64;
 
 // 字段验证规则
 struct FieldValidation {
@@ -100,10 +132,15 @@ struct FieldDefinition {
     // 嵌套对象/数组支持
     BodySchemaBase* nested_schema;  // 嵌套对象的 schema
     BodySchemaBase* item_schema;    // 数组元素的 schema
+    FieldType element_type;         // 数组元素类型（用于简单类型数组）
+    
+    // 自定义类型处理器
+    ICustomTypeHandler* custom_handler;  // 自定义类型处理器
     
     FieldDefinition(const std::string& n, FieldType t, size_t o)
         : name(n), type(t), offset(o), is_optional(false), 
-          nested_schema(nullptr), item_schema(nullptr) {}
+          nested_schema(nullptr), item_schema(nullptr), element_type(FieldType::STRING), 
+          custom_handler(nullptr) {}
 };
 
 // Body Schema 基类
@@ -124,17 +161,35 @@ public:
 
 // ========== Response Body Schema DSL ==========
 
-// Response 字段类型
+// Response 字段类型（使用标准的整数和浮点数位宽命名）
 enum class ResponseFieldType {
-    STRING,
-    INT,
-    INT64,
-    FLOAT,
-    DOUBLE,
-    BOOL,
-    ARRAY,
-    OBJECT
+    STRING,      // 字符串类型
+    INT8,        // 8位有符号整数
+    INT16,       // 16位有符号整数
+    INT32,       // 32位有符号整数
+    INT64,       // 64位有符号整数
+    UINT8,       // 8位无符号整数
+    UINT16,      // 16位无符号整数
+    UINT32,      // 32位无符号整数
+    UINT64,      // 64位无符号整数
+    FP32,        // 32位浮点数（单精度）
+    FP64,        // 64位浮点数（双精度）
+    BOOL,        // 布尔值
+    DATE,        // 日期类型
+    DATETIME,    // 日期时间类型
+    EMAIL,       // 邮箱类型
+    URL,         // URL 类型
+    UUID,        // UUID 类型
+    ARRAY,       // 数组类型
+    OBJECT,      // 对象类型
+    CUSTOM       // 自定义类型
 };
+
+// 兼容旧代码的类型别名
+using INT = INT32;
+using INT64_TYPE = INT64;
+using FLOAT = FP32;
+using DOUBLE = FP64;
 
 // Response 字段定义
 struct ResponseFieldDef {
@@ -165,16 +220,22 @@ public:
                 case ResponseFieldType::STRING:
                     field_json = cJSON_CreateString(value.c_str());
                     break;
-                case ResponseFieldType::INT:
+                case ResponseFieldType::INT8:
+                case ResponseFieldType::INT16:
+                case ResponseFieldType::INT32:
                     field_json = cJSON_CreateNumber(std::stoi(value));
                     break;
                 case ResponseFieldType::INT64:
+                case ResponseFieldType::UINT8:
+                case ResponseFieldType::UINT16:
+                case ResponseFieldType::UINT32:
+                case ResponseFieldType::UINT64:
                     field_json = cJSON_CreateNumber(std::stoll(value));
                     break;
-                case ResponseFieldType::FLOAT:
+                case ResponseFieldType::FP32:
                     field_json = cJSON_CreateNumber(std::stof(value));
                     break;
-                case ResponseFieldType::DOUBLE:
+                case ResponseFieldType::FP64:
                     field_json = cJSON_CreateNumber(std::stod(value));
                     break;
                 case ResponseFieldType::BOOL:
@@ -225,8 +286,20 @@ public:
     }
     
     // 整数字段
-    ResponseSchema& integer(const std::string& name, std::function<int(T*)> getter) {
-        return add(name, ResponseFieldType::INT, [getter](T* instance) -> std::string {
+    ResponseSchema& integer8(const std::string& name, std::function<int8_t(T*)> getter) {
+        return add(name, ResponseFieldType::INT8, [getter](T* instance) -> std::string {
+            return std::to_string(getter(instance));
+        });
+    }
+    
+    ResponseSchema& integer16(const std::string& name, std::function<int16_t(T*)> getter) {
+        return add(name, ResponseFieldType::INT16, [getter](T* instance) -> std::string {
+            return std::to_string(getter(instance));
+        });
+    }
+    
+    ResponseSchema& integer32(const std::string& name, std::function<int32_t(T*)> getter) {
+        return add(name, ResponseFieldType::INT32, [getter](T* instance) -> std::string {
             return std::to_string(getter(instance));
         });
     }
@@ -238,18 +311,56 @@ public:
         });
     }
     
-    // 浮点数字段
-    ResponseSchema& floating(const std::string& name, std::function<float(T*)> getter) {
-        return add(name, ResponseFieldType::FLOAT, [getter](T* instance) -> std::string {
+    // 无符号整数字段
+    ResponseSchema& uinteger8(const std::string& name, std::function<uint8_t(T*)> getter) {
+        return add(name, ResponseFieldType::UINT8, [getter](T* instance) -> std::string {
             return std::to_string(getter(instance));
         });
     }
     
-    // 双精度字段
-    ResponseSchema& number(const std::string& name, std::function<double(T*)> getter) {
-        return add(name, ResponseFieldType::DOUBLE, [getter](T* instance) -> std::string {
+    ResponseSchema& uinteger16(const std::string& name, std::function<uint16_t(T*)> getter) {
+        return add(name, ResponseFieldType::UINT16, [getter](T* instance) -> std::string {
             return std::to_string(getter(instance));
         });
+    }
+    
+    ResponseSchema& uinteger32(const std::string& name, std::function<uint32_t(T*)> getter) {
+        return add(name, ResponseFieldType::UINT32, [getter](T* instance) -> std::string {
+            return std::to_string(getter(instance));
+        });
+    }
+    
+    ResponseSchema& uinteger64(const std::string& name, std::function<uint64_t(T*)> getter) {
+        return add(name, ResponseFieldType::UINT64, [getter](T* instance) -> std::string {
+            return std::to_string(getter(instance));
+        });
+    }
+    
+    // 32位浮点数字段
+    ResponseSchema& fp32(const std::string& name, std::function<float(T*)> getter) {
+        return add(name, ResponseFieldType::FP32, [getter](T* instance) -> std::string {
+            return std::to_string(getter(instance));
+        });
+    }
+    
+    // 64位浮点数字段
+    ResponseSchema& fp64(const std::string& name, std::function<double(T*)> getter) {
+        return add(name, ResponseFieldType::FP64, [getter](T* instance) -> std::string {
+            return std::to_string(getter(instance));
+        });
+    }
+    
+    // 兼容旧代码的方法
+    ResponseSchema& integer(const std::string& name, std::function<int32_t(T*)> getter) {
+        return integer32(name, getter);
+    }
+    
+    ResponseSchema& floating(const std::string& name, std::function<float(T*)> getter) {
+        return fp32(name, getter);
+    }
+    
+    ResponseSchema& number(const std::string& name, std::function<double(T*)> getter) {
+        return fp64(name, getter);
     }
     
     // 布尔字段

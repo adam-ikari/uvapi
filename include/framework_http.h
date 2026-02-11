@@ -9,7 +9,6 @@
 #include <string>
 #include <map>
 #include <functional>
-#include <variant>
 #include <type_traits>
 #include <vector>
 #include <cJSON.h>
@@ -459,46 +458,45 @@ struct HttpRequest {
     std::string body;
     int64_t user_id;
     
-    auto pathAuto(const std::string& key) const -> std::variant<std::string, int64_t>;
-    
     template<typename T>
     T path(const std::string& key) const {
-        auto it = path_params.find(key);
+        std::map<std::string, std::string>::const_iterator it = path_params.find(key);
         if (it == path_params.end()) return T();
         
-        if constexpr (std::is_same_v<T, std::string>) {
-            return it->second;
-        } else if constexpr (std::is_integral_v<T>) {
-            return static_cast<T>(std::stoll(it->second));
-        } else if constexpr (std::is_floating_point_v<T>) {
-            return static_cast<T>(std::stod(it->second));
-        } else {
-            return T(it->second);
-        }
+        return convertValue<T>(it->second);
     }
     
     template<typename T>
     T path(const std::string& key, const T& default_value) const {
         auto it = path_params.find(key);
         if (it != path_params.end()) {
-            if constexpr (std::is_same_v<T, std::string>) {
-                return it->second;
-            } else if constexpr (std::is_integral_v<T>) {
-                return static_cast<T>(std::stoll(it->second));
-            } else if constexpr (std::is_floating_point_v<T>) {
-                return static_cast<T>(std::stod(it->second));
-            } else {
-                return T(it->second);
-            }
+            return convertValue<T>(it->second);
         }
         return default_value;
     }
     
+private:
+    // C++11 兼容的值转换函数
     template<typename T>
-    T query(const std::string& key) const;
+    static T convertValue(const std::string& value) {
+        return T(value);  // 默认实现
+    }
     
     template<typename T>
-    T query(const std::string& key, const T& default_value) const;
+    T query(const std::string& key) const {
+        auto it = query_params.find(key);
+        if (it == query_params.end()) return T();
+        return convertValue<T>(it->second);
+    }
+    
+    template<typename T>
+    T query(const std::string& key, const T& default_value) const {
+        auto it = query_params.find(key);
+        if (it != query_params.end()) {
+            return convertValue<T>(it->second);
+        }
+        return default_value;
+    }
     
     template<typename T>
     T parseBody() const {
@@ -508,6 +506,50 @@ struct HttpRequest {
     std::string getHeader(const std::string& key) const;
     bool isAuthenticated() const;
 };
+
+// 类型特化：字符串类型
+template<>
+inline std::string HttpRequest::convertValue<std::string>(const std::string& value) {
+    return value;
+}
+
+// 类型特化：整数类型
+template<>
+inline int HttpRequest::convertValue<int>(const std::string& value) {
+    return std::stoi(value);
+}
+
+template<>
+inline long HttpRequest::convertValue<long>(const std::string& value) {
+    return std::stol(value);
+}
+
+template<>
+inline long long HttpRequest::convertValue<long long>(const std::string& value) {
+    return std::stoll(value);
+}
+
+template<>
+inline int64_t HttpRequest::convertValue<int64_t>(const std::string& value) {
+    return std::stoll(value);
+}
+
+// 类型特化：浮点类型
+template<>
+inline float HttpRequest::convertValue<float>(const std::string& value) {
+    return std::stof(value);
+}
+
+template<>
+inline double HttpRequest::convertValue<double>(const std::string& value) {
+    return std::stod(value);
+}
+
+// 类型特化：布尔类型
+template<>
+inline bool HttpRequest::convertValue<bool>(const std::string& value) {
+    return (value == "true" || value == "1" || value == "yes" || value == "on");
+}
 
 } // namespace uvapi
 
