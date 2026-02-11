@@ -11,25 +11,34 @@
 
 using namespace uvapi;
 
+// HTTP 响应辅助函数
+static HttpResponse badRequest(const std::string& message) {
+    return HttpResponse(400).json(restful::JSON::error(message));
+}
+
+static HttpResponse ok(const std::string& message) {
+    return HttpResponse(200).json(restful::JSON::success(message));
+}
+
 // 文件上传处理器
-Response handleUpload(const HttpRequest& req) {
+HttpResponse handleUpload(const HttpRequest& req) {
     // 检查 Content-Type
     auto content_type_it = req.headers.find("Content-Type");
     if (content_type_it == req.headers.end()) {
         return badRequest("Missing Content-Type header");
     }
-    
+
     const std::string& content_type = content_type_it->second;
-    
+
     // 检查是否为 multipart/form-data
     if (content_type.find("multipart/form-data") == std::string::npos) {
         return badRequest("Content-Type must be multipart/form-data");
     }
-    
+
     // 解析 multipart 表单
     std::map<std::string, std::string> fields;
     std::map<std::string, UploadedFile> files;
-    
+
     if (!MultipartHelper::parseMultipart(content_type, req.body.c_str(), req.body.size(), fields, files)) {
         return badRequest("Failed to parse multipart form data");
     }
@@ -77,15 +86,15 @@ Response handleUpload(const HttpRequest& req) {
     std::string result(json_str);
     free(json_str);
     cJSON_Delete(root);
-    
-    Response resp(200);
-    resp.headers["Content-Type"] = "application/json";
-    resp.body = result;
+
+    HttpResponse resp(200);
+    resp.header("Content-Type", "application/json");
+    resp.setBody(result);
     return resp;
 }
 
 // 简单的 HTML 上传页面
-Response handleUploadPage(const HttpRequest& req) {
+HttpResponse handleUploadPage(const HttpRequest& req) {
     std::string html = R"(
 <!DOCTYPE html>
 <html>
@@ -112,10 +121,10 @@ Response handleUploadPage(const HttpRequest& req) {
 </body>
 </html>
     )";
-    
-    Response resp(200);
-    resp.headers["Content-Type"] = "text/html";
-    resp.body = html;
+
+    HttpResponse resp(200);
+    resp.header("Content-Type", "text/html");
+    resp.setBody(html);
     return resp;
 }
 

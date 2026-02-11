@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include "../include/framework.h"
+#include "../include/params_dsl.h"
 
 using namespace uvapi;
 using namespace restful;

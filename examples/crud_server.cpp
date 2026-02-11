@@ -15,6 +15,9 @@ using namespace uvapi;
 
 // ========== 数据模型 ==========
 
+// 前向声明
+class UserSchema;
+
 // 用户模型
 struct User {
     int64_t id;

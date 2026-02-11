@@ -127,24 +127,24 @@ inline Middleware auth(const std::string& token_header = "Authorization",
         // 检查 Authorization 头
         auto it = req.headers.find(token_header);
         if (it == req.headers.end()) {
-            return HttpResponse(401).body("Unauthorized: Missing token").header("Content-Type", "text/plain");
+            return HttpResponse(401).setBody("Unauthorized: Missing token").header("Content-Type", "text/plain");
         }
         
         std::string token = it->second;
         
         // 验证 token
         if (validator && !validator(token)) {
-            return HttpResponse(401).body("Unauthorized: Invalid token").header("Content-Type", "text/plain");
+            return HttpResponse(401).setBody("Unauthorized: Invalid token").header("Content-Type", "text/plain");
         }
         
         // 简单的 Bearer Token 验证
         if (token.find("Bearer ") != 0) {
-            return HttpResponse(401).body("Unauthorized: Invalid token format").header("Content-Type", "text/plain");
+            return HttpResponse(401).setBody("Unauthorized: Invalid token format").header("Content-Type", "text/plain");
         }
         
         std::string actual_token = token.substr(7); // 移除 "Bearer "
         if (actual_token.empty()) {
-            return HttpResponse(401).body("Unauthorized: Empty token").header("Content-Type", "text/plain");
+            return HttpResponse(401).setBody("Unauthorized: Empty token").header("Content-Type", "text/plain");
         }
         
         // 执行下一个处理器
@@ -228,7 +228,7 @@ inline Middleware responseTime() {
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         
-        response.setHeader("X-Response-Time", std::to_string(duration.count()) + "ms");
+        response.header("X-Response-Time", std::to_string(duration.count()) + "ms");
         
         return response;
     };

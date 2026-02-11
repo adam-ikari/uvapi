@@ -1,102 +1,27 @@
 /**
  * @file params_dsl.h
  * @brief 参数声明 DSL - 增强版参数定义系统
- * 
- * ## 概述
- * 
+ *
  * 提供更完善的参数类型声明、验证和访问功能，支持多种数据类型和验证规则。
- * 
- * ## 主要功能
- * 
- * 1. **参数类型定义** - 支持 STRING, INTEGER, DOUBLE, BOOLEAN, EMAIL, URL, UUID 等类型
- * 2. **验证规则** - 支持必填/可选、长度、范围、正则、枚举等验证
- * 3. **参数访问** - 提供类型安全的参数访问方法
- * 4. **便捷函数** - 提供常用参数定义（分页、搜索、时间范围等）
- * 
- * ## 使用示例
- * 
- * ### 基本参数定义
- * @code
- * EnhancedParamBuilder builder("username", ParamType::QUERY, ParamDataType::STRING);
- * builder.required().minLength(3).maxLength(20);
- * ParamDefinition param = builder.get();
- * @endcode
- * 
- * ### 参数访问
- * @code
- * ParamAccessor params(req);
- * int page = params.getQueryInt("page", 1);
- * std::string keyword = params.getQueryString("keyword", "");
- * bool debug = params.getQueryBool("debug", false);
- * @endcode
- * 
- * ### 参数验证
- * @code
- * std::string error = ParamValidator::validate(param, value);
- * if (!error.empty()) {
- *     return badRequest(error);
- * }
- * @endcode
- * 
- * ### 批量验证
- * @code
- * std::vector<ParamDefinition> params;
- * params.push_back(/* ... */);
- * std::string error = ParamValidator::validateAll(params, req.query_params);
- * if (!error.empty()) {
- *     return badRequest(error);
- * }
- * @endcode
- * 
- * ### 常用参数定义
- * @code
- * // 分页参数
- * auto pagination = CommonParamDefs::pagination();
- * // 返回: [
- *   - page: required(), min(1)
- *   - limit: defaultValue(10).range(1, 100).optional()
- *   - sort: defaultValue("id").optional()
- *   - order: oneOf("asc", "desc").optional()
- * ]
- * 
- * // 搜索参数
- * auto search = CommonParamDefs::search();
- * // 返回: [
- *   - q: optional().minLength(1).maxLength(100)
- *   - fields: optional()
- * ]
- * 
- * // ID 参数
- * auto id_param = CommonParamDefs::idParam("id", 1, 1000000);
- * @endcode
- * 
- * ## 支持的数据类型
- * 
- * - STRING - 字符串
- * - INT8 - 8位有符号整数（-128 ~ 127）
- * - INT16 - 16位有符号整数（-32768 ~ 32767）
- * - INT32 - 32位有符号整数（-2147483648 ~ 2147483647）
- * - INT64 - 64位有符号整数
- * - UINT8 - 8位无符号整数（0 ~ 255）
- * - UINT16 - 16位无符号整数（0 ~ 65535）
- * - UINT32 - 32位无符号整数（0 ~ 4294967295）
- * - UINT64 - 64位无符号整数
- * - FP32 - 32位浮点数（单精度）
- * - FP64 - 64位浮点数（双精度）
- * - BOOLEAN - 布尔值
- * - DATE - 日期
- * - DATETIME - 日期时间
- * - EMAIL - 邮箱
- * - URL - URL
- * - UUID - UUID
- * 
- * ## 支持的验证规则
- * 
- * - required() / optional() - 必填/可选
- * - minLength(len) / maxLength(len) - 字符串长度
- * - min(val) / max(val) / range(min, max) - 数值范围
- * - pattern(regex) - 正则表达式匹配
- * - oneOf(v1, v2, ...) - 枚举值
+ *
+ * 主要功能:
+ * 1. 参数类型定义 - 支持 STRING, INTEGER, DOUBLE, BOOLEAN, EMAIL, URL, UUID 等类型
+ * 2. 验证规则 - 支持必填/可选、长度、范围、正则、枚举等验证
+ * 3. 参数访问 - 提供类型安全的参数访问方法
+ * 4. 便捷函数 - 提供常用参数定义（分页、搜索、时间范围等）
+ *
+ * 使用示例:
+ * - 基本参数定义: EnhancedParamBuilder builder("username", ParamType::QUERY, ParamDataType::STRING);
+ *   builder.required().minLength(3).maxLength(20);
+ * - 参数访问: ParamAccessor params(req); int page = params.getQueryInt("page", 1);
+ * - 参数验证: std::string error = ParamValidator::validate(param, value);
+ * - 批量验证: std::string error = ParamValidator::validateAll(params, req.query_params);
+ *
+ * 支持的数据类型: STRING, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64,
+ * FP32, FP64, BOOLEAN, DATE, DATETIME, EMAIL, URL, UUID
+ *
+ * 支持的验证规则: required() / optional(), minLength() / maxLength(),
+ * min() / max() / range(), pattern(), oneOf()
  */
 
 #ifndef PARAMS_DSL_H
@@ -173,25 +98,25 @@ public:
     
     // 整数类型
     EnhancedParamBuilder& asInt() {
-        data_type_ = ParamDataType::INTEGER;
+        data_type_ = ParamDataType::INT32;
         return *this;
     }
-    
+
     // 64位整数类型
     EnhancedParamBuilder& asInt64() {
-        data_type_ = ParamDataType::INTEGER64;
+        data_type_ = ParamDataType::INT64;
         return *this;
     }
-    
+
     // 浮点类型
     EnhancedParamBuilder& asDouble() {
-        data_type_ = ParamDataType::DOUBLE;
+        data_type_ = ParamDataType::FP64;
         return *this;
     }
-    
+
     // 浮点类型
     EnhancedParamBuilder& asFloat() {
-        data_type_ = ParamDataType::FLOAT;
+        data_type_ = ParamDataType::FP32;
         return *this;
     }
     
@@ -569,9 +494,9 @@ inline std::string validateQueryParams(const HttpRequest& req,
 
 namespace CommonParamDefs {
     // ID 参数（路径参数）
-    inline EnhancedParamBuilder idParam(const std::string& name = "id", 
+    inline EnhancedParamBuilder idParam(const std::string& name = "id",
                                          int min_val = 1, int max_val = 1000000) {
-        return EnhancedParamBuilder(name, restful::ParamType::PATH, ParamDataType::INTEGER64)
+        return EnhancedParamBuilder(name, restful::ParamType::PATH, ParamDataType::INT64)
             .required()
             .range(min_val, max_val)
             .description("Resource ID")
@@ -581,14 +506,14 @@ namespace CommonParamDefs {
     // 分页参数（查询参数）
     inline std::vector<EnhancedParamBuilder> pagination() {
         return {
-            EnhancedParamBuilder("page", restful::ParamType::QUERY, ParamDataType::INTEGER)
+            EnhancedParamBuilder("page", restful::ParamType::QUERY, ParamDataType::INT32)
                 .defaultValue(1)
                 .min(1)
                 .optional()
                 .description("Page number (1-based)")
                 .example("1"),
-            
-            EnhancedParamBuilder("limit", restful::ParamType::QUERY, ParamDataType::INTEGER)
+
+            EnhancedParamBuilder("limit", restful::ParamType::QUERY, ParamDataType::INT32)
                 .defaultValue(10)
                 .range(1, 100)
                 .optional()

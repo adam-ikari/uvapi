@@ -205,7 +205,7 @@ Middleware create_auth_middleware() {
         auto it = req.headers.find("Authorization");
         if (it == req.headers.end()) {
             return HttpResponse(401, R"({"error": "Missing authorization header"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         std::string auth_header = it->second;
@@ -213,7 +213,7 @@ Middleware create_auth_middleware() {
         // 检查 Bearer Token 格式
         if (auth_header.find("Bearer ") != 0) {
             return HttpResponse(401, R"({"error": "Invalid authorization format"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         std::string token = auth_header.substr(7);  // 移除 "Bearer "
@@ -222,7 +222,7 @@ Middleware create_auth_middleware() {
         uvapi::optional<User> user_opt = user_repo.get_user_by_token(token);
         if (!user_opt.has_value()) {
             return HttpResponse(401, R"({"error": "Invalid or expired token"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         // Token 有效，执行下一个处理器
@@ -237,7 +237,7 @@ Middleware require_role(const std::string& role) {
         auto it = req.headers.find("Authorization");
         if (it == req.headers.end()) {
             return HttpResponse(401, R"({"error": "Unauthorized"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         std::string token = it->second.substr(7);  // 移除 "Bearer "
@@ -246,7 +246,7 @@ Middleware require_role(const std::string& role) {
         uvapi::optional<User> user_opt = user_repo.get_user_by_token(token);
         if (!user_opt.has_value()) {
             return HttpResponse(401, R"({"error": "Unauthorized"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         const User& user = user_opt.value();
@@ -254,7 +254,7 @@ Middleware require_role(const std::string& role) {
         // 检查角色
         if (user.role != role && user.role != "admin") {
             return HttpResponse(403, R"({"error": "Forbidden: insufficient permissions"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         // 角色验证通过，执行下一个处理器
@@ -270,7 +270,7 @@ Handler login = [](const HttpRequest& req) -> HttpResponse {
         LoginRequest login_req;
         if (!req.parseBody(login_req)) {
             return HttpResponse(400, R"({"error": "Invalid request body"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         // 验证用户凭据
@@ -279,7 +279,7 @@ Handler login = [](const HttpRequest& req) -> HttpResponse {
         
         if (!user_opt.has_value()) {
             return HttpResponse(401, R"({"error": "Invalid username or password"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         // 创建 Token
@@ -295,10 +295,10 @@ Handler login = [](const HttpRequest& req) -> HttpResponse {
             << "}";
         
         return HttpResponse(200, oss.str())
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     } catch (const std::exception& e) {
         return HttpResponse(500, R"({"error": "Login failed"})")
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     }
 };
 
@@ -309,7 +309,7 @@ Handler logout = [](const HttpRequest& req) -> HttpResponse {
         auto it = req.headers.find("Authorization");
         if (it == req.headers.end()) {
             return HttpResponse(200, R"({"message": "Logged out successfully"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         std::string token = it->second.substr(7);  // 移除 "Bearer "
@@ -318,10 +318,10 @@ Handler logout = [](const HttpRequest& req) -> HttpResponse {
         user_repo.revoke_token(token);
         
         return HttpResponse(200, R"({"message": "Logged out successfully"})")
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     } catch (const std::exception& e) {
         return HttpResponse(500, R"({"error": "Logout failed"})")
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     }
 };
 
@@ -332,7 +332,7 @@ Handler get_current_user = [](const HttpRequest& req) -> HttpResponse {
         auto it = req.headers.find("Authorization");
         if (it == req.headers.end()) {
             return HttpResponse(401, R"({"error": "Unauthorized"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         std::string token = it->second.substr(7);  // 移除 "Bearer "
@@ -341,7 +341,7 @@ Handler get_current_user = [](const HttpRequest& req) -> HttpResponse {
         uvapi::optional<User> user_opt = user_repo.get_user_by_token(token);
         if (!user_opt.has_value()) {
             return HttpResponse(401, R"({"error": "Unauthorized"})")
-                .setHeader("Content-Type", "application/json");
+                .header("Content-Type", "application/json");
         }
         
         const User& user = user_opt.value();
@@ -357,10 +357,10 @@ Handler get_current_user = [](const HttpRequest& req) -> HttpResponse {
             << "}";
         
         return HttpResponse(200, oss.str())
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     } catch (const std::exception& e) {
         return HttpResponse(500, R"({"error": "Failed to get user info"})")
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     }
 };
 
@@ -392,29 +392,29 @@ Handler get_all_users = [](const HttpRequest& req) -> HttpResponse {
         oss << "],\"total\":" << users.size() << "}";
         
         return HttpResponse(200, oss.str())
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     } catch (const std::exception& e) {
         return HttpResponse(500, R"({"error": "Failed to get users"})")
-            .setHeader("Content-Type", "application/json");
+            .header("Content-Type", "application/json");
     }
 };
 
 // 公开路由
 Handler public_endpoint = [](const HttpRequest& req) -> HttpResponse {
     return HttpResponse(200, R"({"message": "This is a public endpoint"})")
-        .setHeader("Content-Type", "application/json");
+        .header("Content-Type", "application/json");
 };
 
 // 受保护路由
 Handler protected_endpoint = [](const HttpRequest& req) -> HttpResponse {
     return HttpResponse(200, R"({"message": "This is a protected endpoint"})")
-        .setHeader("Content-Type", "application/json");
+        .header("Content-Type", "application/json");
 };
 
 // 管理员路由
 Handler admin_endpoint = [](const HttpRequest& req) -> HttpResponse {
     return HttpResponse(200, R"({"message": "This is an admin-only endpoint"})")
-        .setHeader("Content-Type", "application/json");
+        .header("Content-Type", "application/json");
 };
 
 // ========== 主函数 ==========
