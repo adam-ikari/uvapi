@@ -530,11 +530,7 @@ public:
         size_t offset = getMemberOffset(member);
         FieldDefinition def(name, FieldType::CUSTOM, offset);
         def.custom_handler = handler;
-        if (fields_.empty()) {
-            fields_.push_back(def);
-        } else {
-            fields_.back() = def;
-        }
+        fields_.push_back(def);
         return *this;
     }
     
@@ -709,14 +705,7 @@ private:
     }
     
     void addField(const std::string& name, FieldType type, size_t offset) {
-        if (fields_.empty()) {
-            fields_.push_back(FieldDefinition(name, type, offset));
-        } else {
-            // 更新最后一个字段的类型
-            fields_.back().name = name;
-            fields_.back().type = type;
-            fields_.back().offset = offset;
-        }
+        fields_.push_back(FieldDefinition(name, type, offset));
     }
     
     void setFieldType(FieldType type) {

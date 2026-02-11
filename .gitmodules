@@ -1,3 +1,4 @@
 [submodule "deps/uvhttp"]
-    path = deps/uvhttp
-    url = https://github.com/adam-ikari/uvhttp.git
+	path = deps/uvhttp
+	url = https://github.com/adam-ikari/uvhttp.git
+	ignore = none

@@ -395,18 +395,18 @@ public:
 
 class TypeHandlerRegistry {
 private:
-    static std::map<FieldType, ICustomTypeHandler*> handlers_;
+    static std::map<FieldType, std::unique_ptr<ICustomTypeHandler>> handlers_;
     static bool initialized_;
     
 public:
     static void init() {
         if (initialized_) return;
         
-        handlers_[FieldType::EMAIL] = new EmailTypeHandler();
-        handlers_[FieldType::URL] = new UrlTypeHandler();
-        handlers_[FieldType::UUID] = new UuidTypeHandler();
-        handlers_[FieldType::DATE] = new DateTypeHandler();
-        handlers_[FieldType::DATETIME] = new DatetimeTypeHandler();
+        handlers_[FieldType::EMAIL] = std::make_unique<EmailTypeHandler>();
+        handlers_[FieldType::URL] = std::make_unique<UrlTypeHandler>();
+        handlers_[FieldType::UUID] = std::make_unique<UuidTypeHandler>();
+        handlers_[FieldType::DATE] = std::make_unique<DateTypeHandler>();
+        handlers_[FieldType::DATETIME] = std::make_unique<DatetimeTypeHandler>();
         
         initialized_ = true;
     }
@@ -418,18 +418,18 @@ public:
         
         auto it = handlers_.find(type);
         if (it != handlers_.end()) {
-            return it->second;
+            return it->second.get();
         }
         return nullptr;
     }
     
-    static void registerCustom(FieldType type, ICustomTypeHandler* handler) {
-        handlers_[type] = handler;
+    static void registerCustom(FieldType type, std::unique_ptr<ICustomTypeHandler> handler) {
+        handlers_[type] = std::move(handler);
     }
 };
 
 // 静态成员初始化
-std::map<FieldType, ICustomTypeHandler*> TypeHandlerRegistry::handlers_;
+std::map<FieldType, std::unique_ptr<ICustomTypeHandler>> TypeHandlerRegistry::handlers_;
 bool TypeHandlerRegistry::initialized_ = false;
 
 } // namespace uvapi

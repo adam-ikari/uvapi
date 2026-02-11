@@ -487,7 +487,7 @@ void setFieldValue(void* instance, const FieldDefinition& field_def, const cJSON
             break;
         case FieldType::BOOL:
             if (cJSON_IsBool(json)) {
-                *reinterpret_cast<bool*>(field_ptr) = json->type == cJSON_True;
+                *reinterpret_cast<bool*>(field_ptr) = cJSON_IsTrue(json);
             }
             break;
         case FieldType::OBJECT:

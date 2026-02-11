@@ -18,7 +18,7 @@ include_directories(
     ${PROJECT_ROOT}/deps/uvhttp/include
     ${PROJECT_ROOT}/deps/uvhttp/deps/cjson
     ${PROJECT_ROOT}/deps/uvhttp/deps/libuv/include
-    ${PROJECT_ROOT}/deps/uvhttp/deps/cllhttp
+    ${PROJECT_ROOT}/deps/uvhttp/deps/llhttp
     ${PROJECT_ROOT}/deps/uvhttp/deps/mbedtls/include
     ${PROJECT_ROOT}/deps/uvhttp/deps/uthash/src
 )
@@ -27,7 +27,7 @@ include_directories(
 link_directories(
     ${PROJECT_ROOT}/deps/uvhttp/deps/libuv/build
     ${PROJECT_ROOT}/deps/uvhttp/deps/cjson/build
-    ${PROJECT_ROOT}/deps/uvhttp/deps/cllhttp/build
+    ${PROJECT_ROOT}/deps/uvhttp/deps/llhttp/build
     ${PROJECT_ROOT}/deps/uvhttp/deps/mbedtls/build/library
     ${PROJECT_ROOT}/deps/uvhttp/deps/mimalloc/build
     ${PROJECT_ROOT}/deps/uvhttp/build/dist/lib
@@ -37,20 +37,6 @@ link_directories(
 # Benchmark 性能测试服务器
 add_executable(benchmark_server
     examples/benchmark_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
-
-# 多服务器测试
-add_executable(test_multi_server
-    examples/test_multi_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
-
-# 测试服务器
-add_executable(test_server
-    examples/test_server.cpp
     src/framework_uvhttp.cpp
     src/multipart.cpp
 )
@@ -120,37 +106,7 @@ target_link_libraries(benchmark_server
     dl
 )
 
-target_link_libraries(test_multi_server
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
-    mimalloc
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(test_server
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
-    mimalloc
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(crud_server
+target_link_libraries(benchmark_server
     -Wl,--start-group
     uvhttp
     uv
@@ -257,8 +213,6 @@ target_link_libraries(upload_example
 
 # 编译选项
 target_compile_options(benchmark_server PRIVATE -Wall -Wextra -O2)
-target_compile_options(test_multi_server PRIVATE -Wall -Wextra -O2)
-target_compile_options(test_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(crud_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(auth_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(params_example PRIVATE -Wall -Wextra -O2)

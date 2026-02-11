@@ -258,9 +258,6 @@ bool operator==(const T& lhs, const optional<T>& rhs) {
 
 } // namespace uvapi
 
-// ========== 使用 uvapi::optional 替代 std::optional ==========
-#define std_optional uvapi::optional
-
 // libuv 头文件
 extern "C" {
 #include <uv.h>
