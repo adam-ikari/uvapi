@@ -435,15 +435,27 @@ struct ValidationResult {
 
 // 字段类型枚举
 enum class FieldType {
-    STRING,
-    INT,
-    INT64,
-    FLOAT,
-    DOUBLE,
-    BOOL,
-    ARRAY,
-    OBJECT,
-    CUSTOM
+    STRING,    // 字符串
+    INT8,      // 8位有符号整数
+    INT16,     // 16位有符号整数
+    INT,       // 32位有符号整数（INT32）
+    INT64,     // 64位有符号整数
+    UINT8,     // 8位无符号整数
+    UINT16,    // 16位无符号整数
+    UINT32,    // 32位无符号整数
+    UINT64,    // 64位无符号整数
+    FP32,      // 32位浮点数（单精度）
+    FLOAT,     // 32位浮点数（别名）
+    DOUBLE,    // 64位浮点数（双精度）
+    BOOL,      // 布尔值
+    ARRAY,     // 数组
+    OBJECT,    // 对象
+    DATE,      // 日期（YYYY-MM-DD）
+    DATETIME,  // 日期时间（YYYY-MM-DD HH:MM:SS）
+    EMAIL,     // 邮箱
+    URL,       // URL
+    UUID,      // UUID
+    CUSTOM     // 自定义类型
 };
 
 // 字段验证规则
@@ -517,10 +529,13 @@ struct FieldDefinition {
     // 嵌套对象/数组支持
     BodySchemaBase* nested_schema;  // 嵌套对象的 schema
     BodySchemaBase* item_schema;    // 数组元素的 schema
+    FieldType element_type;         // 数组元素的类型（仅对 ARRAY 有效）
+    ICustomTypeHandler* custom_handler;  // 自定义类型处理器（仅对 CUSTOM 有效）
     
     FieldDefinition(const std::string& n, FieldType t, size_t o)
         : name(n), type(t), offset(o), is_optional(false), 
-          nested_schema(nullptr), item_schema(nullptr) {}
+          nested_schema(nullptr), item_schema(nullptr), 
+          element_type(FieldType::STRING), custom_handler(nullptr) {}
 };
 
 // Body Schema 基类
@@ -744,6 +759,16 @@ public:
 #define REQUIRED_STRING(name, offset) STRING_FIELD(name, offset).required()
 #define OPTIONAL_STRING(name, offset) STRING_FIELD(name, offset).optional()
 
+// 8位整数字段宏
+#define INT8_FIELD(name, offset) int8(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_INT8(name, offset) INT8_FIELD(name, offset).required()
+#define OPTIONAL_INT8(name, offset) INT8_FIELD(name, offset).optional()
+
+// 16位整数字段宏
+#define INT16_FIELD(name, offset) int16(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_INT16(name, offset) INT16_FIELD(name, offset).required()
+#define OPTIONAL_INT16(name, offset) INT16_FIELD(name, offset).optional()
+
 // 整数字段宏
 #define INT_FIELD(name, offset) integer(name, FIELD_OFFSET(T, offset))
 #define REQUIRED_INT(name, offset) INT_FIELD(name, offset).required()
@@ -754,7 +779,37 @@ public:
 #define REQUIRED_INT64(name, offset) INT64_FIELD(name, offset).required()
 #define OPTIONAL_INT64(name, offset) INT64_FIELD(name, offset).optional()
 
+// 8位无符号整数字段宏
+#define UINT8_FIELD(name, offset) uint8(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_UINT8(name, offset) UINT8_FIELD(name, offset).required()
+#define OPTIONAL_UINT8(name, offset) UINT8_FIELD(name, offset).optional()
+
+// 16位无符号整数字段宏
+#define UINT16_FIELD(name, offset) uint16(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_UINT16(name, offset) UINT16_FIELD(name, offset).required()
+#define OPTIONAL_UINT16(name, offset) UINT16_FIELD(name, offset).optional()
+
+// 32位无符号整数字段宏
+#define UINT32_FIELD(name, offset) uint32(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_UINT32(name, offset) UINT32_FIELD(name, offset).required()
+#define OPTIONAL_UINT32(name, offset) UINT32_FIELD(name, offset).optional()
+
+// 64位无符号整数字段宏
+#define UINT64_FIELD(name, offset) uint64(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_UINT64(name, offset) UINT64_FIELD(name, offset).required()
+#define OPTIONAL_UINT64(name, offset) UINT64_FIELD(name, offset).optional()
+
+// 32位浮点数字段宏
+#define FP32_FIELD(name, offset) fp32(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_FP32(name, offset) FP32_FIELD(name, offset).required()
+#define OPTIONAL_FP32(name, offset) FP32_FIELD(name, offset).optional()
+
 // 浮点数字段宏
+#define FLOAT_FIELD(name, offset) floating(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_FLOAT(name, offset) FLOAT_FIELD(name, offset).required()
+#define OPTIONAL_FLOAT(name, offset) FLOAT_FIELD(name, offset).optional()
+
+// 双精度浮点数字段宏
 #define NUMBER_FIELD(name, offset) number(name, FIELD_OFFSET(T, offset))
 #define REQUIRED_NUMBER(name, offset) NUMBER_FIELD(name, offset).required()
 #define OPTIONAL_NUMBER(name, offset) NUMBER_FIELD(name, offset).optional()
@@ -763,6 +818,31 @@ public:
 #define BOOL_FIELD(name, offset) boolean(name, FIELD_OFFSET(T, offset))
 #define REQUIRED_BOOL(name, offset) BOOL_FIELD(name, offset).required()
 #define OPTIONAL_BOOL(name, offset) BOOL_FIELD(name, offset).optional()
+
+// 日期字段宏（YYYY-MM-DD）
+#define DATE_FIELD(name, offset) date(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_DATE(name, offset) DATE_FIELD(name, offset).required()
+#define OPTIONAL_DATE(name, offset) DATE_FIELD(name, offset).optional()
+
+// 日期时间字段宏（YYYY-MM-DD HH:MM:SS）
+#define DATETIME_FIELD(name, offset) datetime(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_DATETIME(name, offset) DATETIME_FIELD(name, offset).required()
+#define OPTIONAL_DATETIME(name, offset) DATETIME_FIELD(name, offset).optional()
+
+// 邮箱字段宏
+#define EMAIL_FIELD(name, offset) email(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_EMAIL(name, offset) EMAIL_FIELD(name, offset).required()
+#define OPTIONAL_EMAIL(name, offset) EMAIL_FIELD(name, offset).optional()
+
+// URL 字段宏
+#define URL_FIELD(name, offset) url(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_URL(name, offset) URL_FIELD(name, offset).required()
+#define OPTIONAL_URL(name, offset) URL_FIELD(name, offset).optional()
+
+// UUID 字段宏
+#define UUID_FIELD(name, offset) uuid(name, FIELD_OFFSET(T, offset))
+#define REQUIRED_UUID(name, offset) UUID_FIELD(name, offset).required()
+#define OPTIONAL_UUID(name, offset) UUID_FIELD(name, offset).optional()
 
 // 使用 std::optional 的可选字段宏
 #define OPTIONAL_STRING_OPT(name, offset) STRING_FIELD(name, offset).optional().useOptional()
@@ -1033,11 +1113,29 @@ private:
         
         switch (type) {
             case FieldType::STRING:
+            case FieldType::DATE:
+            case FieldType::DATETIME:
+            case FieldType::EMAIL:
+            case FieldType::URL:
+            case FieldType::UUID:
                 return cJSON_CreateString(reinterpret_cast<std::string*>(field_ptr)->c_str());
+            case FieldType::INT8:
+                return cJSON_CreateNumber(static_cast<int>(*reinterpret_cast<int8_t*>(field_ptr)));
+            case FieldType::INT16:
+                return cJSON_CreateNumber(static_cast<int>(*reinterpret_cast<int16_t*>(field_ptr)));
             case FieldType::INT:
                 return cJSON_CreateNumber(*reinterpret_cast<int*>(field_ptr));
             case FieldType::INT64:
                 return cJSON_CreateNumber(static_cast<double>(*reinterpret_cast<int64_t*>(field_ptr)));
+            case FieldType::UINT8:
+                return cJSON_CreateNumber(static_cast<int>(*reinterpret_cast<uint8_t*>(field_ptr)));
+            case FieldType::UINT16:
+                return cJSON_CreateNumber(static_cast<int>(*reinterpret_cast<uint16_t*>(field_ptr)));
+            case FieldType::UINT32:
+                return cJSON_CreateNumber(static_cast<double>(*reinterpret_cast<uint32_t*>(field_ptr)));
+            case FieldType::UINT64:
+                return cJSON_CreateNumber(static_cast<double>(*reinterpret_cast<uint64_t*>(field_ptr)));
+            case FieldType::FP32:
             case FieldType::FLOAT:
                 return cJSON_CreateNumber(*reinterpret_cast<float*>(field_ptr));
             case FieldType::DOUBLE:
@@ -1119,8 +1217,23 @@ private:
         
         switch (type) {
             case FieldType::STRING:
+            case FieldType::DATE:
+            case FieldType::DATETIME:
+            case FieldType::EMAIL:
+            case FieldType::URL:
+            case FieldType::UUID:
                 if (cJSON_IsString(json)) {
                     *reinterpret_cast<std::string*>(field_ptr) = json->valuestring;
+                }
+                break;
+            case FieldType::INT8:
+                if (cJSON_IsNumber(json)) {
+                    *reinterpret_cast<int8_t*>(field_ptr) = static_cast<int8_t>(json->valuedouble);
+                }
+                break;
+            case FieldType::INT16:
+                if (cJSON_IsNumber(json)) {
+                    *reinterpret_cast<int16_t*>(field_ptr) = static_cast<int16_t>(json->valuedouble);
                 }
                 break;
             case FieldType::INT:
@@ -1133,6 +1246,27 @@ private:
                     *reinterpret_cast<int64_t*>(field_ptr) = static_cast<int64_t>(json->valuedouble);
                 }
                 break;
+            case FieldType::UINT8:
+                if (cJSON_IsNumber(json)) {
+                    *reinterpret_cast<uint8_t*>(field_ptr) = static_cast<uint8_t>(json->valuedouble);
+                }
+                break;
+            case FieldType::UINT16:
+                if (cJSON_IsNumber(json)) {
+                    *reinterpret_cast<uint16_t*>(field_ptr) = static_cast<uint16_t>(json->valuedouble);
+                }
+                break;
+            case FieldType::UINT32:
+                if (cJSON_IsNumber(json)) {
+                    *reinterpret_cast<uint32_t*>(field_ptr) = static_cast<uint32_t>(json->valuedouble);
+                }
+                break;
+            case FieldType::UINT64:
+                if (cJSON_IsNumber(json)) {
+                    *reinterpret_cast<uint64_t*>(field_ptr) = static_cast<uint64_t>(json->valuedouble);
+                }
+                break;
+            case FieldType::FP32:
             case FieldType::FLOAT:
                 if (cJSON_IsNumber(json)) {
                     *reinterpret_cast<float*>(field_ptr) = static_cast<float>(json->valuedouble);
@@ -1163,7 +1297,18 @@ private:
         
         switch (type) {
             case FieldType::STRING:
+            case FieldType::DATE:
+            case FieldType::DATETIME:
+            case FieldType::EMAIL:
+            case FieldType::URL:
+            case FieldType::UUID:
                 *reinterpret_cast<std::string*>(field_ptr) = "";
+                break;
+            case FieldType::INT8:
+                *reinterpret_cast<int8_t*>(field_ptr) = 0;
+                break;
+            case FieldType::INT16:
+                *reinterpret_cast<int16_t*>(field_ptr) = 0;
                 break;
             case FieldType::INT:
                 *reinterpret_cast<int*>(field_ptr) = 0;
@@ -1171,6 +1316,19 @@ private:
             case FieldType::INT64:
                 *reinterpret_cast<int64_t*>(field_ptr) = 0;
                 break;
+            case FieldType::UINT8:
+                *reinterpret_cast<uint8_t*>(field_ptr) = 0;
+                break;
+            case FieldType::UINT16:
+                *reinterpret_cast<uint16_t*>(field_ptr) = 0;
+                break;
+            case FieldType::UINT32:
+                *reinterpret_cast<uint32_t*>(field_ptr) = 0;
+                break;
+            case FieldType::UINT64:
+                *reinterpret_cast<uint64_t*>(field_ptr) = 0;
+                break;
+            case FieldType::FP32:
             case FieldType::FLOAT:
                 *reinterpret_cast<float*>(field_ptr) = 0.0f;
                 break;
@@ -1194,14 +1352,32 @@ private:
         char* field_ptr = static_cast<char*>(instance) + offset;
         
         switch (type) {
-            case FieldType::STRING: {
+            case FieldType::STRING:
+            case FieldType::DATE:
+            case FieldType::DATETIME:
+            case FieldType::EMAIL:
+            case FieldType::URL:
+            case FieldType::UUID: {
                 const std::string& str = *reinterpret_cast<std::string*>(field_ptr);
                 return !str.empty();
             }
+            case FieldType::INT8:
+                return *reinterpret_cast<int8_t*>(field_ptr) != 0;
+            case FieldType::INT16:
+                return *reinterpret_cast<int16_t*>(field_ptr) != 0;
             case FieldType::INT:
                 return *reinterpret_cast<int*>(field_ptr) != 0;
             case FieldType::INT64:
                 return *reinterpret_cast<int64_t*>(field_ptr) != 0;
+            case FieldType::UINT8:
+                return *reinterpret_cast<uint8_t*>(field_ptr) != 0;
+            case FieldType::UINT16:
+                return *reinterpret_cast<uint16_t*>(field_ptr) != 0;
+            case FieldType::UINT32:
+                return *reinterpret_cast<uint32_t*>(field_ptr) != 0;
+            case FieldType::UINT64:
+                return *reinterpret_cast<uint64_t*>(field_ptr) != 0;
+            case FieldType::FP32:
             case FieldType::FLOAT:
                 return *reinterpret_cast<float*>(field_ptr) != 0.0f;
             case FieldType::DOUBLE:

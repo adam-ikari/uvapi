@@ -276,24 +276,26 @@ public:
             }
             
             // UUID 类型
-            Schema& uuid(std::string T::*field, const std::string& name) {
-                size_t offset = getMemberOffset(field);
-                fields_.push_back(FieldDefinition(name, FieldType::UUID, offset));
-                return *this;
-            }
-            
-            // 自定义类型
-                Schema& custom(std::string T::*field, const std::string& name, ICustomTypeHandler* handler) {
-                    size_t offset = getMemberOffset(field);
-                    FieldDefinition def(name, FieldType::CUSTOM, offset);
-                    def.custom_handler = handler;
-                    fields_.push_back(def);
-                    return *this;
-                }        }
-        
-        Schema& number(double T::*field, const std::string& name) {
-            return fp64(field, name);
-        }    
+    Schema& uuid(std::string T::*field, const std::string& name) {
+        size_t offset = getMemberOffset(field);
+        fields_.push_back(FieldDefinition(name, FieldType::UUID, offset));
+        return *this;
+    }
+    
+    // 自定义类型
+    Schema& custom(std::string T::*field, const std::string& name, ICustomTypeHandler* handler) {
+        size_t offset = getMemberOffset(field);
+        FieldDefinition def(name, FieldType::CUSTOM, offset);
+        def.custom_handler = handler;
+        fields_.push_back(def);
+        return *this;
+    }
+    
+    // 64位浮点数（别名）
+    Schema& number(double T::*field, const std::string& name) {
+        return fp64(field, name);
+    }
+    
     // ========== 链式配置方法 ==========
     
     // 必填
