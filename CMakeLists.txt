@@ -18,7 +18,7 @@ include_directories(
     ${PROJECT_ROOT}/deps/uvhttp/include
     ${PROJECT_ROOT}/deps/uvhttp/deps/cjson
     ${PROJECT_ROOT}/deps/uvhttp/deps/libuv/include
-    ${PROJECT_ROOT}/deps/uvhttp/deps/llhttp
+    ${PROJECT_ROOT}/deps/uvhttp/deps/cllhttp
     ${PROJECT_ROOT}/deps/uvhttp/deps/mbedtls/include
     ${PROJECT_ROOT}/deps/uvhttp/deps/uthash/src
 )
@@ -27,7 +27,7 @@ include_directories(
 link_directories(
     ${PROJECT_ROOT}/deps/uvhttp/deps/libuv/build
     ${PROJECT_ROOT}/deps/uvhttp/deps/cjson/build
-    ${PROJECT_ROOT}/deps/uvhttp/deps/llhttp/build
+    ${PROJECT_ROOT}/deps/uvhttp/deps/cllhttp/build
     ${PROJECT_ROOT}/deps/uvhttp/deps/mbedtls/build/library
     ${PROJECT_ROOT}/deps/uvhttp/deps/mimalloc/build
     ${PROJECT_ROOT}/deps/uvhttp/build/dist/lib
@@ -35,32 +35,32 @@ link_directories(
 )
 
 # Benchmark 性能测试服务器
-add_executable(benchmark_server
-    examples/benchmark_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
+# add_executable(benchmark_server
+#     examples/benchmark_server.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
 
-# CRUD 服务器示例
-add_executable(crud_server
-    examples/crud_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
+# # CRUD 服务器示例 - 需要更新 DSL API
+# add_executable(crud_server
+#     examples/crud_server.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
 
-# 认证服务器示例
-add_executable(auth_server
-    examples/auth_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
+# # 认证服务器示例 - 需要更新 DSL API
+# add_executable(auth_server
+#     examples/auth_server.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
 
-# 参数示例
-add_executable(params_example
-    examples/params_example.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
+# # 参数示例 - 需要更新 DSL API
+# add_executable(params_example
+#     examples/params_example.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
 
 # UVHTTP 中间件示例
 add_executable(uvhttp_middleware_example
@@ -69,23 +69,60 @@ add_executable(uvhttp_middleware_example
     src/multipart.cpp
 )
 
-# DSL 示例
+# # DSL 示例 - 需要更新 DSL API
+# add_executable(dsl_example
+#     examples/dsl_example.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
+
+# # Schema 示例 - 需要更新 DSL API
+# add_executable(schema_example
+#     examples/schema_example.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
+
+# 文件上传示例
+add_executable(upload_example
+    examples/upload_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# 添加示例程序以测试
+add_executable(auth_server
+    examples/auth_server.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+add_executable(crud_server
+    examples/crud_server.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
 add_executable(dsl_example
     examples/dsl_example.cpp
     src/framework_uvhttp.cpp
     src/multipart.cpp
 )
 
-# Schema 示例
 add_executable(schema_example
     examples/schema_example.cpp
     src/framework_uvhttp.cpp
     src/multipart.cpp
 )
 
-# 文件上传示例
-add_executable(upload_example
-    examples/upload_example.cpp
+add_executable(params_example
+    examples/params_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+add_executable(benchmark_server
+    examples/benchmark_server.cpp
     src/framework_uvhttp.cpp
     src/multipart.cpp
 )
@@ -100,13 +137,12 @@ target_link_libraries(benchmark_server
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
 )
 
-target_link_libraries(benchmark_server
+target_link_libraries(crud_server
     -Wl,--start-group
     uvhttp
     uv
@@ -115,7 +151,6 @@ target_link_libraries(benchmark_server
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -130,7 +165,6 @@ target_link_libraries(auth_server
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -145,7 +179,6 @@ target_link_libraries(params_example
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -160,7 +193,6 @@ target_link_libraries(uvhttp_middleware_example
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -175,7 +207,6 @@ target_link_libraries(dsl_example
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -190,7 +221,6 @@ target_link_libraries(schema_example
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -205,7 +235,6 @@ target_link_libraries(upload_example
     mbedtls
     mbedx509
     mbedcrypto
-    mimalloc
     -Wl,--end-group
     pthread
     dl

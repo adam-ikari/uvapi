@@ -38,12 +38,22 @@ struct User {
 class UserSchema : public DslBodySchema<User> {
 public:
     void define() override {
-        REQUIRED_INT64(id, id);
-        REQUIRED_STRING(username, username).minLength(3).maxLength(50);
-        REQUIRED_STRING(email, email).pattern("^[^@]+@[^@]+$");
-        REQUIRED_INT(age, age).range(18, 120);
-        OPTIONAL_ARRAY(tags, tags);
-        REQUIRED_BOOL(active, active);
+        field(createField("id", FieldType::INT64, offsetof(User, id))
+            .required());
+        field(createField("username", FieldType::STRING, offsetof(User, username))
+            .required()
+            .minLength(3)
+            .maxLength(50));
+        field(createField("email", FieldType::STRING, offsetof(User, email))
+            .required()
+            .pattern("^[^@]+@[^@]+$");
+        field(createField("age", FieldType::INT, offsetof(User, age))
+            .required()
+            .range(18, 120));
+        field(createField("tags", FieldType::ARRAY, offsetof(User, tags))
+            .element_type(FieldType::STRING));
+        field(createField("active", FieldType::BOOL, offsetof(User, active))
+            .required());
     }
 };
 
@@ -65,10 +75,18 @@ struct CreateUserRequest {
 class CreateUserRequestSchema : public DslBodySchema<CreateUserRequest> {
 public:
     void define() override {
-        REQUIRED_STRING(username, username).minLength(3).maxLength(50);
-        REQUIRED_STRING(email, email).pattern("^[^@]+@[^@]+$");
-        REQUIRED_INT(age, age).range(18, 120);
-        OPTIONAL_ARRAY(tags, tags);
+        field(createField("username", FieldType::STRING, offsetof(CreateUserRequest, username))
+            .required()
+            .minLength(3)
+            .maxLength(50));
+        field(createField("email", FieldType::STRING, offsetof(CreateUserRequest, email))
+            .required()
+            .pattern("^[^@]+@[^@]+$"));
+        field(createField("age", FieldType::INT, offsetof(CreateUserRequest, age))
+            .required()
+            .range(18, 120));
+        field(createField("tags", FieldType::ARRAY, offsetof(CreateUserRequest, tags))
+            .element_type(FieldType::STRING));
     }
 };
 
@@ -89,11 +107,20 @@ struct UpdateUserRequest {
 class UpdateUserRequestSchema : public DslBodySchema<UpdateUserRequest> {
 public:
     void define() override {
-        OPTIONAL_STRING(username, username).minLength(3).maxLength(50);
-        OPTIONAL_STRING(email, email).pattern("^[^@]+@[^@]+$");
-        OPTIONAL_INT(age, age).range(18, 120);
-        OPTIONAL_ARRAY(tags, tags);
-        OPTIONAL_BOOL(active, active);
+        field(createField("username", FieldType::STRING, offsetof(UpdateUserRequest, username))
+            .optional()
+            .minLength(3)
+            .maxLength(50));
+        field(createField("email", FieldType::STRING, offsetof(UpdateUserRequest, email))
+            .optional()
+            .pattern("^[^@]+@[^@]+$"));
+        field(createField("age", FieldType::INT, offsetof(UpdateUserRequest, age))
+            .optional()
+            .range(18, 120));
+        field(createField("tags", FieldType::ARRAY, offsetof(UpdateUserRequest, tags))
+            .element_type(FieldType::STRING));
+        field(createField("active", FieldType::BOOLEAN, offsetof(UpdateUserRequest, active))
+            .optional());
     }
 };
 

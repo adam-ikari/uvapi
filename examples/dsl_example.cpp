@@ -10,7 +10,7 @@
 #include <iostream>
 
 using namespace uvapi;
-using namespace uvapi::restful;
+using namespace restful;
 
 // ========== 示例数据模型 ==========
 

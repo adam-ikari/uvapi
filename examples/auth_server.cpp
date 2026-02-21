@@ -83,8 +83,12 @@ struct LoginRequest {
 class LoginRequestSchema : public DslBodySchema<LoginRequest> {
 public:
     void define() override {
-        REQUIRED_STRING(username, username).minLength(3);
-        REQUIRED_STRING(password, password).minLength(6);
+        field(createField("username", FieldType::STRING, offsetof(LoginRequest, username))
+            .required()
+            .minLength(3));
+        field(createField("password", FieldType::STRING, offsetof(LoginRequest, password))
+            .required()
+            .minLength(6));
     }
 };
 

@@ -143,7 +143,7 @@ public:
         // 32位整数字段
         Schema& int32(int32_t T::*field, const std::string& name) {
             size_t offset = getMemberOffset(field);
-            fields_.push_back(FieldDefinition(name, FieldType::INT32, offset));
+            fields_.push_back(FieldDefinition(name, FieldType::INT, offset));
             return *this;
         }
         
@@ -192,7 +192,7 @@ public:
         // 64位浮点数字段
         Schema& fp64(double T::*field, const std::string& name) {
             size_t offset = getMemberOffset(field);
-            fields_.push_back(FieldDefinition(name, FieldType::FP64, offset));
+            fields_.push_back(FieldDefinition(name, FieldType::DOUBLE, offset));
             return *this;
         }
         
@@ -228,7 +228,7 @@ public:
             
             // 整数数组
             Schema& arrayOfInt(std::vector<int32_t> T::*field, const std::string& name) {
-                return arrayOf(field, name, FieldType::INT32);
+                return arrayOf(field, name, FieldType::INT);
             }
             
             // 64位整数数组
@@ -238,7 +238,7 @@ public:
             
             // 浮点数数组
             Schema& arrayOfNumber(std::vector<double> T::*field, const std::string& name) {
-                return arrayOf(field, name, FieldType::FP64);
+                return arrayOf(field, name, FieldType::DOUBLE);
             }
             
             // 布尔数组
@@ -364,7 +364,6 @@ public:
     Schema& pattern(const std::string& regex) {
         if (!fields_.empty()) {
             fields_.back().validation.pattern = regex;
-            fields_.back().validation.has_pattern = true;
         }
         return *this;
     }
@@ -373,7 +372,6 @@ public:
     Schema& oneOf(const std::vector<std::string>& values) {
         if (!fields_.empty()) {
             fields_.back().validation.enum_values = values;
-            fields_.back().validation.has_enum = true;
         }
         return *this;
     }
@@ -432,7 +430,7 @@ public:
     
     DslBodySchema& field(int32_t T::*member, const std::string& name) {
         size_t offset = getMemberOffset(member);
-        addField(name, FieldType::INT32, offset);
+        addField(name, FieldType::INT, offset);
         return *this;
     }
     
@@ -474,7 +472,7 @@ public:
     
     DslBodySchema& field(double T::*member, const std::string& name) {
         size_t offset = getMemberOffset(member);
-        addField(name, FieldType::FP64, offset);
+        addField(name, FieldType::DOUBLE, offset);
         return *this;
     }
     
@@ -553,10 +551,9 @@ public:
     }
     
     DslBodySchema& asInt32() {
-        setFieldType(FieldType::INT32);
-        return *this;
-    }
-    
+                setFieldType(FieldType::INT);
+                return *this;
+            }    
     DslBodySchema& asInt64() {
         setFieldType(FieldType::INT64);
         return *this;
@@ -588,10 +585,9 @@ public:
     }
     
     DslBodySchema& asFp64() {
-        setFieldType(FieldType::FP64);
-        return *this;
-    }
-    
+                setFieldType(FieldType::DOUBLE);
+                return *this;
+            }    
     DslBodySchema& asBool() {
         setFieldType(FieldType::BOOL);
         return *this;
@@ -753,14 +749,12 @@ private:
     void setPattern(const std::string& regex) {
         if (!fields_.empty()) {
             fields_.back().validation.pattern = regex;
-            fields_.back().validation.has_pattern = true;
         }
     }
     
     void setEnumValues(const std::vector<std::string>& values) {
         if (!fields_.empty()) {
             fields_.back().validation.enum_values = values;
-            fields_.back().validation.has_enum = true;
         }
     }
 };

@@ -61,10 +61,10 @@ enum class ParamDataType {
 };
 
 // 兼容旧代码的类型别名
-using INTEGER = INT32;
-using INTEGER64 = INT64;
-using DOUBLE = FP64;
-using FLOAT = FP32;
+using INTEGER = int;
+using INTEGER64 = int64_t;
+using DOUBLE = double;
+using FLOAT = float;
 
 // 参数类型信息
 struct ParamTypeInfo {
