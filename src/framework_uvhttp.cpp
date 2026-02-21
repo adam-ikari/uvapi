@@ -63,7 +63,7 @@ int on_uvhttp_request(uvhttp_request_t* req, uvhttp_response_t* resp) {
         return -1;
     }
     
-    uvapi::server::Server* svr_instance = (uvapi::server::Server*)http_server->user_data;
+    server::Server* svr_instance = (server::Server*)http_server->user_data;
     
     // 构造 HttpRequest
     HttpRequest uvapi_req;
@@ -792,6 +792,12 @@ Api& Api::disableCors() {
 // Token 管理
 std::string Api::generateToken(int64_t user_id, const std::string& username, 
                               const std::string& role, int64_t expires_in_seconds) {
+    // 定期清理过期 token（每 100 次调用清理一次）
+    static int call_count = 0;
+    if (++call_count % 100 == 0) {
+        cleanupExpiredTokens();
+    }
+    
     // 生成随机 token
     static const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     std::random_device rd;
@@ -808,7 +814,8 @@ std::string Api::generateToken(int64_t user_id, const std::string& username,
     info.user_id = user_id;
     info.username = username;
     info.role = role;
-    info.expires_at = time(nullptr) + expires_in_seconds;
+    // 使用 int64_t 避免 time_t 32 位溢出问题
+    info.expires_at = static_cast<int64_t>(time(nullptr)) + expires_in_seconds;
     tokens_[token] = info;
     
     return token;
@@ -821,8 +828,8 @@ bool Api::validateToken(const std::string& token, int64_t& user_id,
         return false;
     }
     
-    // 检查过期时间
-    if (time(nullptr) > it->second.expires_at) {
+    // 检查过期时间（使用 int64_t 避免溢出问题）
+    if (static_cast<int64_t>(time(nullptr)) > it->second.expires_at) {
         tokens_.erase(it);
         return false;
     }
@@ -839,8 +846,8 @@ std::string Api::refreshToken(const std::string& token, int64_t expires_in_secon
         return "";
     }
     
-    // 检查过期时间
-    if (time(nullptr) > it->second.expires_at) {
+    // 检查过期时间（使用 int64_t 避免溢出问题）
+    if (static_cast<int64_t>(time(nullptr)) > it->second.expires_at) {
         tokens_.erase(it);
         return "";
     }
@@ -963,21 +970,22 @@ void RouteBuilder::register_() {
                     
                     // 整数范围验证
                     if (param.validation.has_min || param.validation.has_max) {
-                        try {
-                            int int_value = std::stoi(value);
-                            if (param.validation.has_min && int_value < param.validation.min_value) {
-                                return HttpResponse(400).json(
-                                    "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_value) + "\"}"
-                                );
-                            }
-                            if (param.validation.has_max && int_value > param.validation.max_value) {
-                                return HttpResponse(400).json(
-                                    "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_value) + "\"}"
-                                );
-                            }
-                        } catch (...) {
+                        char* endptr = nullptr;
+                        errno = 0;
+                        long int_value = strtol(value.c_str(), &endptr, 10);
+                        if (endptr == value.c_str() || *endptr != '\0' || errno == ERANGE) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be an integer\"}"
+                            );
+                        }
+                        if (param.validation.has_min && int_value < param.validation.min_value) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_value) + "\"}"
+                            );
+                        }
+                        if (param.validation.has_max && int_value > param.validation.max_value) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_value) + "\"}"
                             );
                         }
                     }
@@ -1002,42 +1010,44 @@ void RouteBuilder::register_() {
                     
                     // 整数范围验证
                     if (param.validation.has_min || param.validation.has_max) {
-                        try {
-                            int int_value = std::stoi(value);
-                            if (param.validation.has_min && int_value < param.validation.min_value) {
-                                return HttpResponse(400).json(
-                                    "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_value) + "\"}"
-                                );
-                            }
-                            if (param.validation.has_max && int_value > param.validation.max_value) {
-                                return HttpResponse(400).json(
-                                    "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_value) + "\"}"
-                                );
-                            }
-                        } catch (...) {
+                        char* endptr = nullptr;
+                        errno = 0;
+                        long int_value = strtol(value.c_str(), &endptr, 10);
+                        if (endptr == value.c_str() || *endptr != '\0' || errno == ERANGE) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be an integer\"}"
+                            );
+                        }
+                        if (param.validation.has_min && int_value < param.validation.min_value) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_value) + "\"}"
+                            );
+                        }
+                        if (param.validation.has_max && int_value > param.validation.max_value) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_value) + "\"}"
                             );
                         }
                     }
                     
                     // 浮点数范围验证
                     if (param.validation.has_min || param.validation.has_max) {
-                        try {
-                            double double_value = std::stod(value);
-                            if (param.validation.has_min && double_value < param.validation.min_double) {
-                                return HttpResponse(400).json(
-                                    "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_double) + "\"}"
-                                );
-                            }
-                            if (param.validation.has_max && double_value > param.validation.max_double) {
-                                return HttpResponse(400).json(
-                                    "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_double) + "\"}"
-                                );
-                            }
-                        } catch (...) {
+                        char* endptr = nullptr;
+                        errno = 0;
+                        double double_value = strtod(value.c_str(), &endptr);
+                        if (endptr == value.c_str() || *endptr != '\0' || errno == ERANGE) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be a number\"}"
+                            );
+                        }
+                        if (param.validation.has_min && double_value < param.validation.min_double) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_double) + "\"}"
+                            );
+                        }
+                        if (param.validation.has_max && double_value > param.validation.max_double) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_double) + "\"}"
                             );
                         }
                     }
@@ -1069,15 +1079,17 @@ void RouteBuilder::register_() {
     }
 }
 
+} // namespace uvapi
+
 // ParamGroup::applyTo 的实现
-void ParamGroup::applyTo(RouteBuilder& route_builder) {
+void uvapi::restful::ParamGroup::applyTo(uvapi::restful::RouteBuilder& route_builder) {
     for (const auto& param : params_) {
-        if (param.type == ParamType::PATH) {
-            if (param.validation.required || 
+        if (param.type == uvapi::restful::ParamType::PATH) {
+            if (param.validation.required ||
                 param.validation.has_min || param.validation.has_max ||
                 param.validation.has_pattern || param.validation.has_enum) {
                 // 有验证规则，需要配置
-                route_builder.param(param.name, [param](ParamBuilder& p) {
+                route_builder.param(param.name, [&](uvapi::restful::ParamBuilder& p) {
                     if (param.validation.required) p.required();
                     if (!param.validation.required) p.optional();
                     if (param.validation.has_min) p.min(param.validation.min_value);
@@ -1090,25 +1102,27 @@ void ParamGroup::applyTo(RouteBuilder& route_builder) {
                 });
             } else {
                 // 无验证规则，使用空配置
-                route_builder.param(param.name, [](ParamBuilder& p) {
+                route_builder.param(param.name, [](uvapi::restful::ParamBuilder& p) {
                     p.optional();
                 });
             }
         } else {
-            if (param.validation.required || 
+            if (param.validation.required ||
                 param.validation.has_min || param.validation.has_max ||
                 param.validation.has_pattern || param.validation.has_enum) {
                 // 有验证规则，需要配置
-                route_builder.query(param.name, [param](ParamBuilder& p) {
+                route_builder.query(param.name, [&](uvapi::restful::ParamBuilder& p) {
                     if (!param.default_value.empty()) {
                         if (param.validation.has_min || param.validation.has_max) {
-                            // 尝试解析为整数
-                            try {
-                                int val = std::stoi(param.default_value);
-                                p.defaultValue(val);
-                            } catch (...) {
+                            // 尝试解析为整数，使用 strtol 避免异常
+                            char* endptr = nullptr;
+                            errno = 0;
+                            long val = strtol(param.default_value.c_str(), &endptr, 10);
+                            if (endptr == param.default_value.c_str() || *endptr != '\0' || errno != 0) {
                                 // 解析失败，使用字符串
                                 p.defaultValue(param.default_value);
+                            } else {
+                                p.defaultValue(static_cast<int>(val));
                             }
                         } else {
                             p.defaultValue(param.default_value);
@@ -1126,7 +1140,7 @@ void ParamGroup::applyTo(RouteBuilder& route_builder) {
                 });
             } else {
                 // 无验证规则，使用空配置
-                route_builder.query(param.name, [](ParamBuilder& p) {
+                route_builder.query(param.name, [](uvapi::restful::ParamBuilder& p) {
                     p.optional();
                 });
             }
@@ -1134,6 +1148,5 @@ void ParamGroup::applyTo(RouteBuilder& route_builder) {
     }
 }
 
-} // namespace restful
 } // namespace uvapi
 
