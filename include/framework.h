@@ -19,6 +19,12 @@
 #include <algorithm>
 #include <type_traits>
 #include <iostream>
+#include <regex>
+#include <ctime>
+#include <iomanip>
+
+// Forward declarations
+class ICustomTypeHandler;
 
 // ========== C++11 Optional 实现 ==========
 namespace uvapi {
@@ -1869,7 +1875,19 @@ private:
 } // namespace server
 
 // ========== RESTful API 层：RESTful 特定功能 ==========
+
+// 在 restful 命名空间外部包含 framework_types.h，以避免命名空间污染
+#include "framework_types.h"
+
 namespace restful {
+
+// 使用 uvapi 命名空间的类型（因为 restful 在 uvapi 命名空间内部）
+using CJsonPtr = uvapi::CJsonPtr;
+using CJsonStringPtr = uvapi::CJsonStringPtr;
+using HttpRequest = uvapi::HttpRequest;
+using HttpResponse = uvapi::HttpResponse;
+using ValidationResult = uvapi::ValidationResult;
+using HttpMethod = uvapi::HttpMethod;
 
 // JSON 序列化/反序列化工具类
 class JSON {
@@ -1908,7 +1926,7 @@ public:
         CJsonPtr root_;
         
     public:
-        Object() : root_(makeCJson(cJSON_CreateObject())) {}
+        Object() : root_(uvapi::makeCJson(cJSON_CreateObject())) {}
         
         // 链式设置方法
         Object& set(const std::string& key, const std::string& value) {
@@ -1970,14 +1988,14 @@ public:
         // 转换为 JSON 字符串
         std::string toString() const {
             if (!root_) return "{}";
-            CJsonStringPtr json = makeCJsonString(cJSON_Print(root_.get()));
+            CJsonStringPtr json = uvapi::makeCJsonString(cJSON_Print(root_.get()));
             return std::string(json.get() ? json.get() : "{}");
         }
         
         // 转换为紧凑 JSON 字符串
         std::string toCompactString() const {
             if (!root_) return "{}";
-            CJsonStringPtr json = makeCJsonString(cJSON_PrintUnformatted(root_.get()));
+            CJsonStringPtr json = uvapi::makeCJsonString(cJSON_PrintUnformatted(root_.get()));
             return std::string(json.get() ? json.get() : "{}");
         }
         
@@ -1994,7 +2012,7 @@ public:
         CJsonPtr root_;
         
     public:
-        Array() : root_(makeCJson(cJSON_CreateArray())) {}
+        Array() : root_(uvapi::makeCJson(cJSON_CreateArray())) {}
         
         // 链式添加方法
         Array& append(const std::string& value) {
@@ -2049,14 +2067,14 @@ public:
         // 转换为 JSON 字符串
         std::string toString() const {
             if (!root_) return "[]";
-            CJsonStringPtr json = makeCJsonString(cJSON_Print(root_.get()));
+            CJsonStringPtr json = uvapi::makeCJsonString(cJSON_Print(root_.get()));
             return std::string(json.get() ? json.get() : "[]");
         }
         
         // 转换为紧凑 JSON 字符串
         std::string toCompactString() const {
             if (!root_) return "[]";
-            CJsonStringPtr json = makeCJsonString(cJSON_PrintUnformatted(root_.get()));
+            CJsonStringPtr json = uvapi::makeCJsonString(cJSON_PrintUnformatted(root_.get()));
             return std::string(json.get() ? json.get() : "[]");
         }
     };
@@ -2068,10 +2086,10 @@ public:
         
     public:
         explicit Parser(const std::string& json_str) 
-            : root_(makeCJson(cJSON_Parse(json_str.c_str()))) {}
+            : root_(uvapi::makeCJson(cJSON_Parse(json_str.c_str()))) {}
         
         explicit Parser(const char* json_str) 
-            : root_(json_str ? makeCJson(cJSON_Parse(json_str)) : nullptr) {}
+            : root_(json_str ? uvapi::makeCJson(cJSON_Parse(json_str)) : nullptr) {}
         
         // 检查是否有效
         bool isValid() const { return root_ != nullptr; }
@@ -2137,10 +2155,10 @@ struct TokenInfo {
     int64_t user_id;
     std::string username;
     std::string role;
-    time_t expires_at;
+    int64_t expires_at;
     
     TokenInfo() : user_id(0), expires_at(0) {}
-    TokenInfo(int64_t uid, const std::string& uname, const std::string& r, time_t exp)
+    TokenInfo(int64_t uid, const std::string& uname, const std::string& r, int64_t exp)
         : user_id(uid), username(uname), role(r), expires_at(exp) {}
 };
 
@@ -2324,11 +2342,16 @@ struct ParamValidation {
     bool has_max;
     bool has_pattern;
     bool has_enum;
+    int min_length;
+    int max_length;
+    bool has_min_length;
+    bool has_max_length;
     
     ParamValidation() 
         : required(false), min_value(0), max_value(0), 
           min_double(0.0), max_double(0.0),
-          has_min(false), has_max(false), has_pattern(false), has_enum(false) {}
+          has_min(false), has_max(false), has_pattern(false), has_enum(false),
+          min_length(0), max_length(0), has_min_length(false), has_max_length(false) {}
 };
 
 // 参数定义
@@ -2719,6 +2742,9 @@ public:
     // 停止应用
     void stop();
     
+    // 获取服务器实例（供 RouteBuilder 使用）
+    uvapi::server::Server* getServer() { return server_.get(); }
+    
     // Token 管理
     std::string generateToken(int64_t user_id, const std::string& username, 
                               const std::string& role, int64_t expires_in_seconds = 3600);
@@ -2730,8 +2756,9 @@ public:
     // 请求处理
     HttpResponse handle_request(const HttpRequest& req);
     
-    // 获取服务器实例
-    server::Server* getServer() { return server_.get(); }
+private:
+    // 辅助方法：检查 token 是否过期
+    bool isTokenExpired(const TokenInfo& info) const;
     
 private:
     std::string api_title_;
@@ -2742,20 +2769,16 @@ private:
     CorsConfig cors_config_;
     bool cors_enabled_;
     std::map<std::string, TokenInfo> tokens_;
+    int64_t token_generation_count_;
+    int64_t last_cleanup_time_;
     
-    std::unique_ptr<server::Server> server_;  // 使用 unique_ptr 管理 Server 层
+    std::unique_ptr<uvapi::server::Server> server_;  // 使用 unique_ptr 管理 Server 层
     
     std::string generateRandomString(size_t length);
     std::string extractBearerToken(const std::string& auth_header);
 };
 
 } // namespace restful
-
-// ========== JSON 辅助函数声明 ==========
-// 这些函数在 framework_uvhttp.cpp 中实现
-std::string jsonSuccess(const std::string& message);
-std::string jsonError(const std::string& message);
-std::string jsonData(const std::string& data);
 
 } // namespace uvapi
 

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <cstring>
 #include <random>
+#include <climits>
 
 namespace uvapi {
 
@@ -687,7 +688,9 @@ Api::Api(uv_loop_t* loop)
     , api_version_("1.0.0")
     , running_(false)
     , cors_enabled_(false)
-    , server_(nullptr) {
+    , server_(nullptr)
+    , token_generation_count_(0)
+    , last_cleanup_time_(0) {
     
     if (!loop) {
         // 事件循环不能为空
@@ -792,10 +795,12 @@ Api& Api::disableCors() {
 // Token 管理
 std::string Api::generateToken(int64_t user_id, const std::string& username, 
                               const std::string& role, int64_t expires_in_seconds) {
-    // 定期清理过期 token（每 100 次调用清理一次）
-    static int call_count = 0;
-    if (++call_count % 100 == 0) {
+    // 每生成 100 个 token 或距离上次清理超过 5 分钟时清理过期 token
+    token_generation_count_++;
+    int64_t now = static_cast<int64_t>(time(nullptr));
+    if (token_generation_count_ % 100 == 0 || (now - last_cleanup_time_) > 300) {
         cleanupExpiredTokens();
+        last_cleanup_time_ = now;
     }
     
     // 生成随机 token
@@ -821,6 +826,10 @@ std::string Api::generateToken(int64_t user_id, const std::string& username,
     return token;
 }
 
+bool Api::isTokenExpired(const TokenInfo& info) const {
+    return static_cast<int64_t>(time(nullptr)) > info.expires_at;
+}
+
 bool Api::validateToken(const std::string& token, int64_t& user_id, 
                         std::string& username, std::string& role) {
     std::map<std::string, TokenInfo>::iterator it = tokens_.find(token);
@@ -828,8 +837,8 @@ bool Api::validateToken(const std::string& token, int64_t& user_id,
         return false;
     }
     
-    // 检查过期时间（使用 int64_t 避免溢出问题）
-    if (static_cast<int64_t>(time(nullptr)) > it->second.expires_at) {
+    // 检查过期时间
+    if (isTokenExpired(it->second)) {
         tokens_.erase(it);
         return false;
     }
@@ -846,8 +855,8 @@ std::string Api::refreshToken(const std::string& token, int64_t expires_in_secon
         return "";
     }
     
-    // 检查过期时间（使用 int64_t 避免溢出问题）
-    if (static_cast<int64_t>(time(nullptr)) > it->second.expires_at) {
+    // 检查过期时间
+    if (isTokenExpired(it->second)) {
         tokens_.erase(it);
         return "";
     }
@@ -869,7 +878,7 @@ bool Api::revokeToken(const std::string& token) {
 void Api::cleanupExpiredTokens() {
     time_t now = time(nullptr);
     for (std::map<std::string, TokenInfo>::iterator it = tokens_.begin(); it != tokens_.end(); ) {
-        if (now > it->second.expires_at) {
+        if (static_cast<int64_t>(now) > it->second.expires_at) {
             tokens_.erase(it++);
         } else {
             ++it;
@@ -978,12 +987,19 @@ void RouteBuilder::register_() {
                                 "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be an integer\"}"
                             );
                         }
-                        if (param.validation.has_min && int_value < param.validation.min_value) {
+                        // 检查是否在 int 范围内
+                        if (int_value < INT_MIN || int_value > INT_MAX) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' value is out of range\"}"
+                            );
+                        }
+                        int checked_value = static_cast<int>(int_value);
+                        if (param.validation.has_min && checked_value < param.validation.min_value) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_value) + "\"}"
                             );
                         }
-                        if (param.validation.has_max && int_value > param.validation.max_value) {
+                        if (param.validation.has_max && checked_value > param.validation.max_value) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_value) + "\"}"
                             );
@@ -1018,12 +1034,19 @@ void RouteBuilder::register_() {
                                 "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be an integer\"}"
                             );
                         }
-                        if (param.validation.has_min && int_value < param.validation.min_value) {
+                        // 检查是否在 int 范围内
+                        if (int_value < INT_MIN || int_value > INT_MAX) {
+                            return HttpResponse(400).json(
+                                "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' value is out of range\"}"
+                            );
+                        }
+                        int checked_value = static_cast<int>(int_value);
+                        if (param.validation.has_min && checked_value < param.validation.min_value) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at least " + std::to_string(param.validation.min_value) + "\"}"
                             );
                         }
-                        if (param.validation.has_max && int_value > param.validation.max_value) {
+                        if (param.validation.has_max && checked_value > param.validation.max_value) {
                             return HttpResponse(400).json(
                                 "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' must be at most " + std::to_string(param.validation.max_value) + "\"}"
                             );

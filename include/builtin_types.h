@@ -47,147 +47,12 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <mutex>
 
 namespace uvapi {
 
 // ========== 验证辅助函数 ==========
-
-namespace validators {
-
-/**
- * @brief 验证邮箱格式
- * @param email 邮箱地址
- * @return 验证结果
- */
-inline ValidationResult validateEmail(const std::string& email) {
-    // 简化的邮箱验证正则表达式
-    static const std::regex email_regex(R"(^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$)");
-    if (!std::regex_match(email, email_regex)) {
-        return ValidationResult("Invalid email format");
-    }
-    return ValidationResult::ok();
-}
-
-/**
- * @brief 验证 URL 格式
- * @param url URL 地址
- * @return 验证结果
- */
-inline ValidationResult validateUrl(const std::string& url) {
-    // 简化的 URL 验证正则表达式
-    static const std::regex url_regex(R"(^(https?|ftp)://[^\s/$.?#][^\s]*$)");
-    if (!std::regex_match(url, url_regex)) {
-        return ValidationResult("Invalid URL format");
-    }
-    return ValidationResult::ok();
-}
-
-/**
- * @brief 验证 UUID 格式
- * @param uuid UUID 字符串
- * @return 验证结果
- */
-inline ValidationResult validateUuid(const std::string& uuid) {
-    // UUID v4 格式：xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-    static const std::regex uuid_regex(R"(^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$)");
-    if (!std::regex_match(uuid, uuid_regex)) {
-        return ValidationResult("Invalid UUID format (expected format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx)");
-    }
-    return ValidationResult::ok();
-}
-
-/**
- * @brief 验证日期格式（YYYY-MM-DD）
- * @param date 日期字符串
- * @return 验证结果
- */
-inline ValidationResult validateDate(const std::string& date) {
-    static const std::regex date_regex(R"(^\d{4}-\d{2}-\d{2}$)");
-    if (!std::regex_match(date, date_regex)) {
-        return ValidationResult("Invalid date format (expected format: YYYY-MM-DD)");
-    }
-    
-    // 验证日期是否有效
-    int year, month, day;
-    char dash1, dash2;
-    std::istringstream iss(date);
-    iss >> year >> dash1 >> month >> dash2 >> day;
-    
-    if (dash1 != '-' || dash2 != '-') {
-        return ValidationResult("Invalid date format");
-    }
-    
-    if (month < 1 || month > 12) {
-        return ValidationResult("Invalid month");
-    }
-    
-    if (day < 1 || day > 31) {
-        return ValidationResult("Invalid day");
-    }
-    
-    // 检查月份的天数
-    static const int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    int max_days = days_in_month[month - 1];
-    
-    // 闰年二月
-    if (month == 2 && ((year % 400 == 0) || (year % 100 != 0 && year % 4 == 0))) {
-        max_days = 29;
-    }
-    
-    if (day > max_days) {
-        return ValidationResult("Invalid day for the given month");
-    }
-    
-    return ValidationResult::ok();
-}
-
-/**
- * @brief 验证日期时间格式（YYYY-MM-DD HH:MM:SS）
- * @param datetime 日期时间字符串
- * @return 验证结果
- */
-inline ValidationResult validateDatetime(const std::string& datetime) {
-    static const std::regex datetime_regex(R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$)");
-    if (!std::regex_match(datetime, datetime_regex)) {
-        return ValidationResult("Invalid datetime format (expected format: YYYY-MM-DD HH:MM:SS)");
-    }
-    
-    // 分离日期和时间部分
-    std::string date_part = datetime.substr(0, 10);
-    std::string time_part = datetime.substr(11, 8);
-    
-    // 验证日期部分
-    ValidationResult date_result = validateDate(date_part);
-    if (!date_result.success) {
-        return date_result;
-    }
-    
-    // 验证时间部分
-    int hour, minute, second;
-    char colon1, colon2;
-    std::istringstream iss(time_part);
-    iss >> hour >> colon1 >> minute >> colon2 >> second;
-    
-    if (colon1 != ':' || colon2 != ':') {
-        return ValidationResult("Invalid time format");
-    }
-    
-    if (hour < 0 || hour > 23) {
-        return ValidationResult("Invalid hour");
-    }
-    
-    if (minute < 0 || minute > 59) {
-        return ValidationResult("Invalid minute");
-    }
-    
-    if (second < 0 || second > 59) {
-        return ValidationResult("Invalid second");
-    }
-    
-    return ValidationResult::ok();
-}
-
-} // namespace validators
+// 验证函数已在 framework_types.h 中定义，此处不再重复定义
 
 // ========== 内置类型处理器 ==========
 
@@ -219,15 +84,11 @@ public:
         return true;
     }
     
-    std::string validate(const cJSON* json) const override {
+    ValidationResult validate(const cJSON* json) const override {
         if (!cJSON_IsString(json)) {
-            return "Email field must be a string";
+            return ValidationResult("Email field must be a string");
         }
-        ValidationResult result = validators::validateEmail(json->valuestring);
-        if (!result.success) {
-            return result.error_message;
-        }
-        return "";
+        return validators::validateEmail(json->valuestring);
     }
 };
 
@@ -259,15 +120,11 @@ public:
         return true;
     }
     
-    std::string validate(const cJSON* json) const override {
+    ValidationResult validate(const cJSON* json) const override {
         if (!cJSON_IsString(json)) {
-            return "URL field must be a string";
+            return ValidationResult("URL field must be a string");
         }
-        ValidationResult result = validators::validateUrl(json->valuestring);
-        if (!result.success) {
-            return result.error_message;
-        }
-        return "";
+        return validators::validateUrl(json->valuestring);
     }
 };
 
@@ -299,15 +156,11 @@ public:
         return true;
     }
     
-    std::string validate(const cJSON* json) const override {
+    ValidationResult validate(const cJSON* json) const override {
         if (!cJSON_IsString(json)) {
-            return "UUID field must be a string";
+            return ValidationResult("UUID field must be a string");
         }
-        ValidationResult result = validators::validateUuid(json->valuestring);
-        if (!result.success) {
-            return result.error_message;
-        }
-        return "";
+        return validators::validateUuid(json->valuestring);
     }
 };
 
@@ -339,15 +192,11 @@ public:
         return true;
     }
     
-    std::string validate(const cJSON* json) const override {
+    ValidationResult validate(const cJSON* json) const override {
         if (!cJSON_IsString(json)) {
-            return "Date field must be a string";
+            return ValidationResult("Date field must be a string");
         }
-        ValidationResult result = validators::validateDate(json->valuestring);
-        if (!result.success) {
-            return result.error_message;
-        }
-        return "";
+        return validators::validateDate(json->valuestring);
     }
 };
 
@@ -379,15 +228,11 @@ public:
         return true;
     }
     
-    std::string validate(const cJSON* json) const override {
+    ValidationResult validate(const cJSON* json) const override {
         if (!cJSON_IsString(json)) {
-            return "Datetime field must be a string";
+            return ValidationResult("Datetime field must be a string");
         }
-        ValidationResult result = validators::validateDatetime(json->valuestring);
-        if (!result.success) {
-            return result.error_message;
-        }
-        return "";
+        return validators::validateDatetime(json->valuestring);
     }
 };
 
@@ -396,25 +241,23 @@ public:
 class TypeHandlerRegistry {
 private:
     static std::map<FieldType, std::unique_ptr<ICustomTypeHandler>> handlers_;
-    static bool initialized_;
+    static std::once_flag init_flag_;
+    
+    static void doInit() {
+        handlers_[FieldType::EMAIL].reset(new EmailTypeHandler());
+        handlers_[FieldType::URL].reset(new UrlTypeHandler());
+        handlers_[FieldType::UUID].reset(new UuidTypeHandler());
+        handlers_[FieldType::DATE].reset(new DateTypeHandler());
+        handlers_[FieldType::DATETIME].reset(new DatetimeTypeHandler());
+    }
     
 public:
     static void init() {
-        if (initialized_) return;
-        
-        handlers_[FieldType::EMAIL] = std::make_unique<EmailTypeHandler>();
-        handlers_[FieldType::URL] = std::make_unique<UrlTypeHandler>();
-        handlers_[FieldType::UUID] = std::make_unique<UuidTypeHandler>();
-        handlers_[FieldType::DATE] = std::make_unique<DateTypeHandler>();
-        handlers_[FieldType::DATETIME] = std::make_unique<DatetimeTypeHandler>();
-        
-        initialized_ = true;
+        std::call_once(init_flag_, doInit);
     }
     
     static ICustomTypeHandler* get(FieldType type) {
-        if (!initialized_) {
-            init();
-        }
+        init();
         
         auto it = handlers_.find(type);
         if (it != handlers_.end()) {
@@ -424,13 +267,14 @@ public:
     }
     
     static void registerCustom(FieldType type, std::unique_ptr<ICustomTypeHandler> handler) {
+        init();
         handlers_[type] = std::move(handler);
     }
 };
 
 // 静态成员初始化
 std::map<FieldType, std::unique_ptr<ICustomTypeHandler>> TypeHandlerRegistry::handlers_;
-bool TypeHandlerRegistry::initialized_ = false;
+std::once_flag TypeHandlerRegistry::init_flag_;
 
 } // namespace uvapi
 
