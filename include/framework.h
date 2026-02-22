@@ -1842,9 +1842,6 @@ struct HttpRequest {
     std::string body;
     int64_t user_id;
     
-    // 参数类型信息（由框架填充）
-    std::map<std::string, int> param_types_;  // key -> data_type (0=string, 1=int, 2=int64, 3=double, 4=float, 5=bool)
-    
     // 路径参数（智能推断类型，Zero Exceptions）
     // 使用 strtol/strtod + errno 替代 std::stoll/std::stod，避免异常抛出
     
@@ -1872,43 +1869,6 @@ struct HttpRequest {
 
         const std::string& value = it->second;
         return parseValue<T>(value);
-    }
-    
-    // 参数访问器 - 基于 DSL 类型信息
-    struct ParamsAccessor {
-        const HttpRequest& req;
-        
-        ParamsAccessor(const HttpRequest& r) : req(r) {}
-        
-        // 根据 DSL 类型信息自动返回正确类型的 optional
-        optional<int> getInt(const std::string& key) const {
-            return req.query<int>(key);
-        }
-        
-        optional<int64_t> getInt64(const std::string& key) const {
-            return req.query<int64_t>(key);
-        }
-        
-        optional<double> getDouble(const std::string& key) const {
-            return req.query<double>(key);
-        }
-        
-        optional<float> getFloat(const std::string& key) const {
-            return req.query<float>(key);
-        }
-        
-        optional<bool> getBool(const std::string& key) const {
-            return req.query<bool>(key);
-        }
-        
-        optional<std::string> getString(const std::string& key) const {
-            return req.query<std::string>(key);
-        }
-    };
-    
-    // 获取参数访问器
-    ParamsAccessor params() const {
-        return ParamsAccessor(*this);
     }
 
 private:
