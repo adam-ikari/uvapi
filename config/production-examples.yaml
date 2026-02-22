@@ -1,0 +1,336 @@
+# UVAPI 生产环境配置示例
+
+## 日志配置
+
+```yaml
+# config/logging.yaml
+logging:
+  level: info  # debug, info, warn, error, fatal
+  format: json  # json, text
+  output:
+    - type: file
+      path: /var/log/uvapi/app.log
+      max_size: 100MB
+      max_files: 10
+      compress: true
+    - type: stdout
+      level: error
+```
+
+## 性能配置
+
+```yaml
+# config/performance.yaml
+performance:
+  # 连接配置
+  max_connections: 10000
+  max_connections_per_ip: 100
+  connection_timeout: 30s
+  idle_timeout: 60s
+  
+  # 线程配置
+  worker_threads: 4
+  io_threads: 2
+  
+  # 缓存配置
+  cache_enabled: true
+  cache_size: 10000
+  cache_ttl: 300s
+  
+  # 限流配置
+  rate_limit_enabled: true
+  rate_limit_requests: 1000
+  rate_limit_window: 60s
+```
+
+## 安全配置
+
+```yaml
+# config/security.yaml
+security:
+  # TLS 配置
+  tls_enabled: false
+  tls_cert_file: /etc/ssl/certs/server.crt
+  tls_key_file: /etc/ssl/private/server.key
+  tls_ca_file: /etc/ssl/certs/ca.crt
+  
+  # CORS 配置
+  cors_enabled: true
+  cors_allowed_origins:
+    - https://example.com
+    - https://www.example.com
+  cors_allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - PATCH
+  cors_allowed_headers:
+    - Content-Type
+    - Authorization
+  cors_max_age: 3600
+  
+  # 认证配置
+  auth_enabled: false
+  auth_provider: jwt  # jwt, basic, oauth2
+  auth_jwt_secret: your-secret-key-here
+  auth_jwt_expiry: 3600s
+  
+  # 请求限制
+  max_request_size: 10MB
+  max_header_size: 8KB
+  max_uri_length: 4096
+```
+
+## 监控配置
+
+```yaml
+# config/monitoring.yaml
+monitoring:
+  # 健康检查
+  health_check_enabled: true
+  health_check_path: /health
+  health_check_interval: 30s
+  
+  # 指标
+  metrics_enabled: true
+  metrics_path: /metrics
+  metrics_format: prometheus  # prometheus, json
+  
+  # 追踪
+  tracing_enabled: false
+  tracing_exporter: jaeger  # jaeger, zipkin
+  tracing_endpoint: http://localhost:14268/api/traces
+```
+
+## 服务器配置
+
+```yaml
+# config/server.yaml
+server:
+  host: 0.0.0.0
+  port: 8080
+  
+  # 启动配置
+  startup_timeout: 60s
+  graceful_shutdown_timeout: 30s
+  
+  # 优雅关闭
+  enable_graceful_shutdown: true
+  shutdown_signals:
+    - SIGTERM
+    - SIGINT
+```
+
+## 环境变量
+
+```bash
+# .env.example
+
+# 日志
+LOG_LEVEL=info
+LOG_FORMAT=json
+
+# 性能
+MAX_CONNECTIONS=10000
+WORKER_THREADS=4
+
+# 安全
+TLS_ENABLED=false
+AUTH_ENABLED=false
+
+# 监控
+HEALTH_CHECK_ENABLED=true
+METRICS_ENABLED=true
+
+# 分配器
+UVHTTP_ALLOCATOR_TYPE=1
+```
+
+## 生产环境部署脚本
+
+```bash
+#!/bin/bash
+# scripts/deploy.sh
+
+set -e
+
+echo "Deploying UVAPI to production..."
+
+# 1. 备份当前版本
+echo "Backing up current version..."
+./scripts/backup.sh
+
+# 2. 停止服务
+echo "Stopping service..."
+sudo systemctl stop uvapi
+
+# 3. 更新代码
+echo "Updating code..."
+git pull origin main
+git submodule update --init --recursive
+
+# 4. 构建
+echo "Building..."
+./scripts/build.sh --release
+
+# 5. 更新配置
+echo "Updating configuration..."
+sudo cp config/production.yaml /etc/uvapi/config.yaml
+
+# 6. 启动服务
+echo "Starting service..."
+sudo systemctl start uvapi
+
+# 7. 健康检查
+echo "Waiting for service to be healthy..."
+sleep 10
+curl -f http://localhost:8080/health || {
+    echo "Health check failed!"
+    sudo systemctl stop uvapi
+    ./scripts/rollback.sh
+    exit 1
+}
+
+echo "Deployment successful!"
+```
+
+## 健康检查脚本
+
+```bash
+#!/bin/bash
+# scripts/health-check.sh
+
+HEALTH_URL="http://localhost:8080/health"
+MAX_RETRIES=5
+RETRY_INTERVAL=5
+
+for i in $(seq 1 $MAX_RETRIES); do
+    echo "Health check attempt $i/$MAX_RETRIES..."
+    
+    RESPONSE=$(curl -s -w "\n%{http_code}" $HEALTH_URL)
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    BODY=$(echo "$RESPONSE" | sed '$d')
+    
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "Health check passed!"
+        echo "Response: $BODY"
+        exit 0
+    fi
+    
+    if [ $i -lt $MAX_RETRIES ]; then
+        echo "Health check failed, retrying in ${RETRY_INTERVAL}s..."
+        sleep $RETRY_INTERVAL
+    fi
+done
+
+echo "Health check failed after $MAX_RETRIES attempts!"
+exit 1
+```
+
+## 备份脚本
+
+```bash
+#!/bin/bash
+# scripts/backup.sh
+
+BACKUP_DIR="/var/backups/uvapi"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/uvapi_$TIMESTAMP.tar.gz"
+
+echo "Creating backup: $BACKUP_FILE..."
+
+mkdir -p $BACKUP_DIR
+
+# 备份二进制文件
+tar -czf $BACKUP_FILE \
+    /usr/local/bin/uvapi \
+    /etc/uvapi \
+    /var/lib/uvapi
+
+echo "Backup completed: $BACKUP_FILE"
+
+# 保留最近7天的备份
+find $BACKUP_DIR -name "uvapi_*.tar.gz" -mtime +7 -delete
+```
+
+## 回滚脚本
+
+```bash
+#!/bin/bash
+# scripts/rollback.sh
+
+BACKUP_DIR="/var/backups/uvapi"
+
+echo "Rolling back to previous version..."
+
+# 找到最新的备份
+LATEST_BACKUP=$(ls -t $BACKUP_DIR/uvapi_*.tar.gz 2>/dev/null | head -n1)
+
+if [ -z "$LATEST_BACKUP" ]; then
+    echo "No backup found!"
+    exit 1
+fi
+
+echo "Restoring from: $LATEST_BACKUP"
+
+# 停止服务
+sudo systemctl stop uvapi
+
+# 恢复备份
+tar -xzf $LATEST_BACKUP -C /
+
+# 启动服务
+sudo systemctl start uvapi
+
+echo "Rollback completed!"
+```
+
+## 监控告警配置（Prometheus Alertmanager）
+
+```yaml
+# config/alerts.yaml
+groups:
+  - name: uvapi_alerts
+    interval: 30s
+    rules:
+      # 服务健康告警
+      - alert: ServiceUnhealthy
+        expr: up{job="uvapi"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "UVAPI service is down"
+          description: "UVAPI service has been down for more than 1 minute"
+      
+      # 高错误率告警
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 10% for the last 5 minutes"
+      
+      # 高延迟告警
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "P95 latency is above 1 second for the last 5 minutes"
+      
+      # 内存使用告警
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 1GB for the last 5 minutes"
+```
