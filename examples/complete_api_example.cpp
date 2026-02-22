@@ -9,10 +9,11 @@
 #include <iostream>
 #include <sstream>
 #include "../include/framework.h"
-#include "../include/params_dsl.h"
+#include "../include/declarative_dsl.h"
 
 using namespace uvapi;
 using namespace restful;
+using namespace uvapi::declarative;
 
 // ========== 数据模型 ==========
 
@@ -74,34 +75,32 @@ std::string buildUsersJson(const std::vector<User>& users) {
 
 // 1. 获取用户列表
 HttpResponse getUsers(const HttpRequest& req) {
-    auto params = req.params();
-    
-    // 获取查询参数（类型由 DSL 决定）
-    auto page = params.getInt("page");
-    auto limit = params.getInt("limit");
-    auto status = params.getString("status");
-    auto search = params.getString("search");
+    // 使用类型自动推导的方法访问参数
+    auto page = req.getInt("page");
+    auto limit = req.getInt("limit");
+    auto status = req.getString("status");
+    auto search = req.getString("search");
     
     // 框架已自动应用默认值
-    int page_num = page.value();
-    int limit_num = limit.value();
+    int page_num = page.value_or(1);
+    int limit_num = limit.value_or(10);
+    std::string status_filter = status.value_or("active");
+    std::string search_keyword = search.value_or("");
     
     std::vector<User> filteredUsers;
     
     // 过滤用户
     for (const auto& user : userDatabase) {
         // 状态过滤
-        if (status.hasValue()) {
-            std::string s = status.value();
-            if (s == "active" && !user.active) continue;
-            if (s == "inactive" && user.active) continue;
+        if (!status_filter.empty() && status_filter != user.username) {
+            if (status_filter == "active" && !user.active) continue;
+            if (status_filter == "inactive" && user.active) continue;
         }
         
         // 搜索过滤
-        if (search.hasValue() && !search.value().empty()) {
-            std::string keyword = search.value();
-            if (user.username.find(keyword) == std::string::npos &&
-                user.email.find(keyword) == std::string::npos) {
+        if (!search_keyword.empty()) {
+            if (user.username.find(search_keyword) == std::string::npos &&
+                user.email.find(search_keyword) == std::string::npos) {
                 continue;
             }
         }
@@ -135,10 +134,7 @@ HttpResponse getUsers(const HttpRequest& req) {
 
 // 2. 获取用户详情
 HttpResponse getUserDetail(const HttpRequest& req) {
-    auto params = req.params();
-    
-    // 获取路径参数
-    auto id = params.getInt("id");
+    auto id = req.getInt("id");
     
     if (!id.hasValue()) {
         return HttpResponse(400)
@@ -164,13 +160,10 @@ HttpResponse getUserDetail(const HttpRequest& req) {
 
 // 3. 创建用户
 HttpResponse createUser(const HttpRequest& req) {
-    auto params = req.params();
-    
-    // 获取参数
-    auto username = params.getString("username");
-    auto email = params.getString("email");
-    auto age = params.getInt("age");
-    auto active = params.getBool("active");
+    auto username = req.getString("username");
+    auto email = req.getString("email");
+    auto age = req.getInt("age");
+    auto active = req.getBool("active");
     
     // 验证必需参数
     if (!username.hasValue() || username.value().empty()) {
@@ -202,9 +195,7 @@ HttpResponse createUser(const HttpRequest& req) {
 
 // 4. 删除用户
 HttpResponse deleteUser(const HttpRequest& req) {
-    auto params = req.params();
-    
-    auto id = params.getInt("id");
+    auto id = req.getInt("id");
     
     if (!id.hasValue()) {
         return HttpResponse(400)
@@ -233,35 +224,21 @@ HttpResponse deleteUser(const HttpRequest& req) {
 
 void setupRoutes(Api& api) {
     // GET /api/users - 获取用户列表
-    // 参数:
-    //   - page: int, optional, default=1, range=[1, 1000]
-    //   - limit: int, optional, default=10, range=[1, 100]
-    //   - status: string, optional, default='active', enum=[active, inactive, pending]
-    //   - search: string, optional, default=''
     api.get("/api/users", [](const HttpRequest& req) -> HttpResponse {
         return getUsers(req);
     });
     
     // GET /api/users/{id} - 获取用户详情
-    // 参数:
-    //   - id: int, required, range=[1, INT_MAX]
     api.get("/api/users/:id", [](const HttpRequest& req) -> HttpResponse {
         return getUserDetail(req);
     });
     
     // POST /api/users - 创建用户
-    // 参数:
-    //   - username: string, required, length=[3, 20]
-    //   - email: string, required, pattern=email
-    //   - age: int, optional, default=18, range=[18, 120]
-    //   - active: bool, optional, default=true
     api.post("/api/users", [](const HttpRequest& req) -> HttpResponse {
         return createUser(req);
     });
     
     // DELETE /api/users/{id} - 删除用户
-    // 参数:
-    //   - id: int, required, range=[1, INT_MAX]
     api.delete("/api/users/:id", [](const HttpRequest& req) -> HttpResponse {
         return deleteUser(req);
     });
@@ -295,26 +272,17 @@ int main(int argc, char* argv[]) {
     std::cout << "  DELETE /api/users/:id    - 删除用户" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "参数说明:" << std::endl;
-    std::cout << "  GET /api/users:" << std::endl;
-    std::cout << "    - page: int, optional, default=1, range=[1, 1000]" << std::endl;
-    std::cout << "    - limit: int, optional, default=10, range=[1, 100]" << std::endl;
-    std::cout << "    - status: string, optional, default='active', enum=[active, inactive, pending]" << std::endl;
-    std::cout << "    - search: string, optional, default=''" << std::endl;
-    std::cout << "  GET /api/users/:id:" << std::endl;
-    std::cout << "    - id: int, required, range=[1, INT_MAX]" << std::endl;
-    std::cout << "  POST /api/users:" << std::endl;
-    std::cout << "    - username: string, required, length=[3, 20]" << std::endl;
-    std::cout << "    - email: string, required, pattern=email" << std::endl;
-    std::cout << "    - age: int, optional, default=18, range=[18, 120]" << std::endl;
-    std::cout << "    - active: bool, optional, default=true" << std::endl;
+    std::cout << "Handler 参数访问（类型自动推导）：" << std::endl;
+    std::cout << "  auto page = req.getInt(\"page\");        // 自动推导为 optional<int>" << std::endl;
+    std::cout << "  auto limit = req.getInt(\"limit\");      // 自动推导为 optional<int>" << std::endl;
+    std::cout << "  auto status = req.getString(\"status\"); // 自动推导为 optional<string>" << std::endl;
+    std::cout << "  auto search = req.getString(\"search\"); // 自动推导为 optional<string>" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "示例请求:" << std::endl;
+    std::cout << "示例请求：" << std::endl;
     std::cout << "  curl http://localhost:8080/api/users" << std::endl;
     std::cout << "  curl http://localhost:8080/api/users?page=1&limit=5" << std::endl;
     std::cout << "  curl http://localhost:8080/api/users?search=alice" << std::endl;
-    std::cout << "  curl http://localhost:8080/api/users?status=active" << std::endl;
     std::cout << "  curl http://localhost:8080/api/users/1" << std::endl;
     std::cout << "  curl -X POST http://localhost:8080/api/users -d 'username=david&email=david@example.com&age=28'" << std::endl;
     std::cout << "  curl -X DELETE http://localhost:8080/api/users/1" << std::endl;

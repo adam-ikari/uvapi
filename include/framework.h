@@ -1842,6 +1842,36 @@ struct HttpRequest {
     std::string body;
     int64_t user_id;
     
+    // 参数类型信息（由框架从 DSL 填充）
+    std::map<std::string, int> param_types_;  // key -> data_type (0=string, 1=int, 2=int64, 3=double, 4=float, 5=bool)
+    
+    // ========== 类型自动推导的参数访问方法 ==========
+    
+    // 根据类型信息自动返回正确类型的 optional
+    optional<int> getInt(const std::string& key) const {
+        return query<int>(key);
+    }
+    
+    optional<int64_t> getInt64(const std::string& key) const {
+        return query<int64_t>(key);
+    }
+    
+    optional<double> getDouble(const std::string& key) const {
+        return query<double>(key);
+    }
+    
+    optional<float> getFloat(const std::string& key) const {
+        return query<float>(key);
+    }
+    
+    optional<bool> getBool(const std::string& key) const {
+        return query<bool>(key);
+    }
+    
+    optional<std::string> getString(const std::string& key) const {
+        return query<std::string>(key);
+    }
+    
     // 路径参数（智能推断类型，Zero Exceptions）
     // 使用 strtol/strtod + errno 替代 std::stoll/std::stod，避免异常抛出
     
