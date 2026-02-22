@@ -4,33 +4,21 @@
  */
 
 #include <iostream>
-#include "../include/params_dsl.h"
+#include "../include/declarative_dsl.h"
 
 using namespace uvapi;
-using namespace restful;
+using namespace uvapi::declarative;
 
 int main() {
     std::cout << "=== 声明式 DSL 示例 ===" << std::endl;
     
     // 示例 1: 用户列表 API 参数
-    auto page = queryParam<int>("page")
-        .optional()
-        .defaultValue(1)
-        .range(1, 1000);
-    
-    auto limit = queryParam<int>("limit")
-        .optional()
-        .defaultValue(10)
-        .range(1, 100);
-    
-    auto status = queryParam<std::string>("status")
-        .optional()
-        .defaultValue("active")
-        .oneOf({"active", "inactive", "pending"});
-    
-    auto search = queryParam<std::string>("search")
-        .optional()
-        .defaultValue("");
+    ParamGroup userListParams = {
+        Int("page", false, 1).range(1, 1000),
+        Int("limit", false, 10).range(1, 100),
+        String("status", false, "active").oneOf({"active", "inactive", "pending"}),
+        String("search", false, "")
+    };
     
     std::cout << "用户列表 API 参数定义完成" << std::endl;
     std::cout << "  page: optional, default=1, range=[1, 1000]" << std::endl;
@@ -39,22 +27,12 @@ int main() {
     std::cout << "  search: optional, default=''" << std::endl;
     
     // 示例 2: 用户创建 API 参数
-    auto username = queryParam<std::string>("username")
-        .required()
-        .length(3, 20);
-    
-    auto email = queryParam<std::string>("email")
-        .required()
-        .pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    
-    auto age = queryParam<int>("age")
-        .optional()
-        .defaultValue(18)
-        .range(18, 120);
-    
-    auto active = queryParam<bool>("active")
-        .optional()
-        .defaultValue(true);
+    ParamGroup createUserParams = {
+        String("username", true, "").length(3, 20),
+        String("email", true, "").pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
+        Int("age", false, 18).range(18, 120),
+        Bool("active", false, true)
+    };
     
     std::cout << "\n用户创建 API 参数定义完成" << std::endl;
     std::cout << "  username: required, length=[3, 20]" << std::endl;

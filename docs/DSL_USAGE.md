@@ -2,7 +2,7 @@
 
 ## 基本语法
 
-声明式 DSL 使用初始化列表语法，类似配置文件。
+声明式 DSL 使用初始化列表语法，验证规则作为参数的属性。
 
 ```cpp
 #include "declarative_dsl.h"
@@ -10,8 +10,8 @@
 using namespace uvapi::declarative;
 
 ParamGroup params = {
-    range(Int("page", false, 1), 1, 1000),
-    range(Int("limit", false, 10), 1, 100)
+    Int("page", false, 1).range(1, 1000),
+    Int("limit", false, 10).range(1, 100)
 };
 ```
 
@@ -74,55 +74,55 @@ Double("rate", true, 1.0)     // 必需，默认值 1.0
 ### 范围验证
 
 ```cpp
-range(ParamDef, min, max)
+ParamDef.range(min, max)
 ```
 
 适用于整数和浮点数参数。
 
 示例：
 ```cpp
-range(Int("page", false, 1), 1, 1000)
-range(Double("price", false, 0.0), 0.0, 1000000.0)
+Int("page", false, 1).range(1, 1000)
+Double("price", false, 0.0).range(0.0, 1000000.0)
 ```
 
 ### 长度验证
 
 ```cpp
-length(ParamDef, min, max)
+ParamDef.length(min, max)
 ```
 
 适用于字符串参数。
 
 示例：
 ```cpp
-length(String("username", true, ""), 3, 20)
+String("username", true, "").length(3, 20)
 ```
 
 ### 正则验证
 
 ```cpp
-pattern(ParamDef, regex)
+ParamDef.pattern(regex)
 ```
 
 适用于字符串参数。
 
 示例：
 ```cpp
-pattern(String("email", true, ""), "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+String("email", true, "").pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
 ```
 
 ### 枚举验证
 
 ```cpp
-oneOf(ParamDef, {value1, value2, ...})
+ParamDef.oneOf({value1, value2, ...})
 ```
 
 适用于所有类型参数。
 
 示例：
 ```cpp
-oneOf(String("status", false, "active"), {"active", "inactive", "pending"})
-oneOf(Int("level", false, 1), {1, 2, 3})
+String("status", false, "active").oneOf({"active", "inactive", "pending"})
+Int("level", false, 1).oneOf({1, 2, 3})
 ```
 
 ## 完整示例
@@ -131,9 +131,9 @@ oneOf(Int("level", false, 1), {1, 2, 3})
 
 ```cpp
 ParamGroup userListParams = {
-    range(Int("page", false, 1), 1, 1000),
-    range(Int("limit", false, 10), 1, 100),
-    oneOf(String("status", false, "active"), {"active", "inactive", "pending"}),
+    Int("page", false, 1).range(1, 1000),
+    Int("limit", false, 10).range(1, 100),
+    String("status", false, "active").oneOf({"active", "inactive", "pending"}),
     String("search", false, "")
 };
 ```
@@ -142,9 +142,9 @@ ParamGroup userListParams = {
 
 ```cpp
 ParamGroup createUserParams = {
-    length(String("username", true, ""), 3, 20),
-    pattern(String("email", true, ""), "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
-    range(Int("age", false, 18), 18, 120),
+    String("username", true, "").length(3, 20),
+    String("email", true, "").pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
+    Int("age", false, 18).range(18, 120),
     Bool("active", false, true)
 };
 ```
@@ -153,13 +153,13 @@ ParamGroup createUserParams = {
 
 ```cpp
 ParamGroup productListParams = {
-    range(Int("page", false, 1), 1, 1000),
-    range(Int("limit", false, 20), 1, 100),
-    oneOf(String("sort", false, "id"), {"id", "name", "price", "created_at"}),
-    oneOf(String("order", false, "asc"), {"asc", "desc"}),
-    range(Int("min_price", false, 0), 0, 1000000),
-    range(Int("max_price", false, 1000000), 0, 1000000),
-    oneOf(String("category", false, ""), {"electronics", "clothing", "books", "food", "other"})
+    Int("page", false, 1).range(1, 1000),
+    Int("limit", false, 20).range(1, 100),
+    String("sort", false, "id").oneOf({"id", "name", "price", "created_at"}),
+    String("order", false, "asc").oneOf({"asc", "desc"}),
+    Int("min_price", false, 0).range(0, 1000000),
+    Int("max_price", false, 1000000).range(0, 1000000),
+    String("category", false, "").oneOf({"electronics", "clothing", "books", "food", "other"})
 };
 ```
 
