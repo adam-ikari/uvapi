@@ -12,33 +12,44 @@ using namespace uvapi::declarative;
 int main() {
     std::cout << "=== 声明式 DSL 示例 ===" << std::endl;
     
-    // 示例 1: 用户列表 API 参数
-    ParamGroup userListParams = {
-        Int("page", false, 1).range(1, 1000),
-        Int("limit", false, 10).range(1, 100),
-        String("status", false, "active").oneOf({"active", "inactive", "pending"}),
-        String("search", false, "")
-    };
+    // 整体式 API 声明
+    ApiBuilder api;
     
-    std::cout << "用户列表 API 参数定义完成" << std::endl;
-    std::cout << "  page: optional, default=1, range=[1, 1000]" << std::endl;
-    std::cout << "  limit: optional, default=10, range=[1, 100]" << std::endl;
-    std::cout << "  status: optional, default=active, enum=[active, inactive, pending]" << std::endl;
-    std::cout << "  search: optional, default=''" << std::endl;
+    api.get("/api/users")
+        .param("page", "int", false, "1").range(1, 1000)
+        .param("limit", "int", false, "10").range(1, 100)
+        .param("status", "string", false, "active").oneOf({"active", "inactive", "pending"})
+        .param("search", "string", false, "")
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
+        });
     
-    // 示例 2: 用户创建 API 参数
-    ParamGroup createUserParams = {
-        String("username", true, "").length(3, 20),
-        String("email", true, "").pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
-        Int("age", false, 18).range(18, 120),
-        Bool("active", false, true)
-    };
+    api.get("/api/users/:id")
+        .pathParam("id", "int", true).range(1, INT_MAX)
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
+        });
     
-    std::cout << "\n用户创建 API 参数定义完成" << std::endl;
-    std::cout << "  username: required, length=[3, 20]" << std::endl;
-    std::cout << "  email: required, pattern=email" << std::endl;
-    std::cout << "  age: optional, default=18, range=[18, 120]" << std::endl;
-    std::cout << "  active: optional, default=true" << std::endl;
+    api.post("/api/users")
+        .param("username", "string", true).length(3, 20)
+        .param("email", "string", true).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+        .param("age", "int", false, "18").range(18, 120)
+        .param("active", "bool", false, "true")
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return HttpResponse(201).json("{\"code\":201,\"message\":\"Created\"}");
+        });
+    
+    api.del("/api/users/:id")
+        .pathParam("id", "int", true).range(1, INT_MAX)
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return HttpResponse(200).json("{\"code\":200,\"message\":\"Deleted\"}");
+        });
+    
+    std::cout << "API 定义完成" << std::endl;
+    std::cout << "  GET /api/users - 用户列表" << std::endl;
+    std::cout << "  GET /api/users/:id - 用户详情" << std::endl;
+    std::cout << "  POST /api/users - 创建用户" << std::endl;
+    std::cout << "  DELETE /api/users/:id - 删除用户" << std::endl;
     
     std::cout << "\n声明式 DSL 示例完成！" << std::endl;
     
