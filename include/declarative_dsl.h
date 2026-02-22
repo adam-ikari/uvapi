@@ -117,6 +117,7 @@ struct ApiDefinition {
     HttpMethod method;
     std::vector<restful::ParamDefinition> params;
     std::function<HttpResponse(const HttpRequest&)> handler;
+    std::vector<restful::ParamDefinition> body_fields;  // Body Schema 字段
     
     ApiDefinition(const std::string& p, HttpMethod m) 
         : path(p), method(m) {}
@@ -221,6 +222,13 @@ struct ApiDefinition {
         return *this;
     }
     
+    // 设置 Request Body Schema
+    template<typename T>
+    ApiDefinition& body(const Schema<T>& schema) {
+        body_fields = schema.getFields();
+        return *this;
+    }
+    
     // ========== 便捷方法：常用参数预设 ==========
     
     // 添加分页参数
@@ -271,6 +279,98 @@ struct ApiDefinition {
         param("status", OptionalWithDefault<std::string>(default_status))
             .oneOf(valid_statuses);
         return *this;
+    }
+};
+
+// ========== Schema 验证（用于 Request Body）==========
+
+template<typename T>
+class Schema {
+private:
+    std::vector<restful::ParamDefinition> fields_;
+    
+public:
+    Schema() {}
+    
+    // 添加必需字段
+    template<typename FieldT>
+    Schema& field(const std::string& name, const Required<FieldT>& req) {
+        restful::ParamDefinition def(name, restful::ParamType::BODY);
+        def.validation.required = true;
+        
+        if (std::is_same<FieldT, int>::value) def.data_type = 1;
+        else if (std::is_same<FieldT, int64_t>::value) def.data_type = 2;
+        else if (std::is_same<FieldT, double>::value) def.data_type = 3;
+        else if (std::is_same<FieldT, float>::value) def.data_type = 4;
+        else if (std::is_same<FieldT, bool>::value) def.data_type = 5;
+        else if (std::is_same<FieldT, std::string>::value) def.data_type = 0;
+        
+        fields_.push_back(def);
+        return *this;
+    }
+    
+    // 添加可选字段（带默认值）
+    template<typename FieldT>
+    Schema& field(const std::string& name, const OptionalWithDefault<FieldT>& opt) {
+        restful::ParamDefinition def(name, restful::ParamType::BODY);
+        def.validation.required = false;
+        
+        if (std::is_same<FieldT, bool>::value) {
+            def.default_value = opt.default_value ? "true" : "false";
+        } else {
+            def.default_value = std::to_string(opt.default_value);
+        }
+        
+        if (std::is_same<FieldT, int>::value) def.data_type = 1;
+        else if (std::is_same<FieldT, int64_t>::value) def.data_type = 2;
+        else if (std::is_same<FieldT, double>::value) def.data_type = 3;
+        else if (std::is_same<FieldT, float>::value) def.data_type = 4;
+        else if (std::is_same<FieldT, bool>::value) def.data_type = 5;
+        else if (std::is_same<FieldT, std::string>::value) def.data_type = 0;
+        
+        fields_.push_back(def);
+        return *this;
+    }
+    
+    // 验证规则
+    Schema& range(int min_val, int max_val) {
+        if (!fields_.empty()) {
+            fields_.back().validation.min_value = min_val;
+            fields_.back().validation.max_value = max_val;
+            fields_.back().validation.has_min = true;
+            fields_.back().validation.has_max = true;
+        }
+        return *this;
+    }
+    
+    Schema& length(size_t min_len, size_t max_len) {
+        if (!fields_.empty()) {
+            fields_.back().validation.min_length = min_len;
+            fields_.back().validation.max_length = max_len;
+            fields_.back().validation.has_min_length = true;
+            fields_.back().validation.has_max_length = true;
+        }
+        return *this;
+    }
+    
+    Schema& pattern(const std::string& regex) {
+        if (!fields_.empty()) {
+            fields_.back().validation.pattern = regex;
+            fields_.back().validation.has_pattern = true;
+        }
+        return *this;
+    }
+    
+    Schema& oneOf(std::initializer_list<std::string> values) {
+        if (!fields_.empty()) {
+            fields_.back().validation.enum_values = values;
+            fields_.back().validation.has_enum = true;
+        }
+        return *this;
+    }
+    
+    const std::vector<restful::ParamDefinition>& getFields() const {
+        return fields_;
     }
 };
 
