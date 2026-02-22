@@ -2,7 +2,7 @@
  * @file declarative_dsl.h
  * @brief 声明式 DSL
  * 
- * 整体式 API 声明，使用类型模板自动推导
+ * 整体式 API 声明，清晰的默认值语法
  */
 
 #ifndef DECLARATIVE_DSL_H
@@ -26,8 +26,23 @@ struct Required {
 template<typename T>
 struct Optional {
     T default_value;
-    Optional(T def) : default_value(def) {}
+    Optional() : default_value(T()) {}
+    explicit Optional(T def) : default_value(def) {}
 };
+
+// ========== 便捷函数 ==========
+
+inline Required<int> Int() { return Required<int>(); }
+inline Required<int64_t> Int64() { return Required<int64_t>(); }
+inline Required<double> Double() { return Required<double>(); }
+inline Required<bool> Bool() { return Required<bool>(); }
+inline Required<std::string> String() { return Required<std::string>(); }
+
+inline Optional<int> Int(int default_value) { return Optional<int>(default_value); }
+inline Optional<int64_t> Int64(int64_t default_value) { return Optional<int64_t>(default_value); }
+inline Optional<double> Double(double default_value) { return Optional<double>(default_value); }
+inline Optional<bool> Bool(bool default_value) { return Optional<bool>(default_value); }
+inline Optional<std::string> String(std::string default_value) { return Optional<std::string>(default_value); }
 
 // ========== API 定义 ==========
 
@@ -40,7 +55,7 @@ struct ApiDefinition {
     ApiDefinition(const std::string& p, HttpMethod m) 
         : path(p), method(m) {}
     
-    // 添加必需参数（模板版本）
+    // 添加必需参数
     template<typename T>
     ApiDefinition& param(const std::string& name, const Required<T>& req) {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
@@ -57,7 +72,7 @@ struct ApiDefinition {
         return *this;
     }
     
-    // 添加可选参数（模板版本）
+    // 添加可选参数
     template<typename T>
     ApiDefinition& param(const std::string& name, const Optional<T>& opt) {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
@@ -80,7 +95,7 @@ struct ApiDefinition {
         return *this;
     }
     
-    // 添加路径参数（模板版本）
+    // 添加路径参数
     template<typename T>
     ApiDefinition& pathParam(const std::string& name, const Required<T>& req) {
         restful::ParamDefinition def(name, restful::ParamType::PATH);
