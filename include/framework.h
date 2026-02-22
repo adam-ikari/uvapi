@@ -1862,6 +1862,16 @@ struct HttpRequest {
         const std::string& value = it->second;
         return parseValue<T>(value);
     }
+    
+    // 路径参数 - 可选参数（自动类型推导，基于默认值）
+    template<typename T>
+    optional<T> pathOpt(const std::string& key, const T& default_value) const {
+        optional<T> result = pathOpt<T>(key);
+        if (!result.hasValue()) {
+            result = optional<T>(default_value);
+        }
+        return result;
+    }
 
     // 路径参数 - 带默认值（返回 T）
     template<typename T>
@@ -1891,6 +1901,16 @@ struct HttpRequest {
 
         const std::string& value = it->second;
         return parseValue<T>(value);
+    }
+    
+    // 查询参数 - 可选参数（自动类型推导，基于默认值）
+    template<typename T>
+    optional<T> queryOpt(const std::string& key, const T& default_value) const {
+        optional<T> result = queryOpt<T>(key);
+        if (!result.hasValue()) {
+            result = optional<T>(default_value);
+        }
+        return result;
     }
 
     // 查询参数 - 带默认值（返回 T）

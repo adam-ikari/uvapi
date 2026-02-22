@@ -58,6 +58,25 @@ int main() {
     std::string search = test_req.queryOpt<std::string>("search").value_or("");
     std::cout << "search (with default): \"" << search << "\"" << std::endl;
     
+    // 示例 3: 自动类型推导（更简洁）
+    std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
+    
+    // 通过默认值自动推导类型
+    auto page_auto = test_req.queryOpt("page", 1);  // 自动推导为 optional<int>
+    auto limit_auto = test_req.queryOpt("limit", 10);  // 自动推导为 optional<int>
+    auto sort_auto = test_req.queryOpt("sort", std::string("id"));  // 自动推导为 optional<std::string>
+    auto active_auto = test_req.queryOpt("active", false);  // 自动推导为 optional<bool>
+    
+    std::cout << "page (auto-deduced): " << page_auto.value() << std::endl;
+    std::cout << "limit (auto-deduced): " << limit_auto.value() << std::endl;
+    std::cout << "sort (auto-deduced): " << sort_auto.value() << std::endl;
+    std::cout << "active (auto-deduced): " << (active_auto.value() ? "true" : "false") << std::endl;
+    
+    // 对比：旧方式 vs 新方式
+    std::cout << "\n对比：" << std::endl;
+    std::cout << "旧方式: req.queryOpt<int>(\"page\", 1)" << std::endl;
+    std::cout << "新方式: req.queryOpt(\"page\", 1)  // 类型自动推导" << std::endl;
+    
     // 示例 3: 自动类型推导 + 可选参数
     std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
     
