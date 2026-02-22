@@ -121,6 +121,12 @@ add_executable(schema_dsl_example
     src/multipart.cpp
 )
 
+add_executable(declarative_dsl_example
+    examples/declarative_dsl_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
 add_executable(benchmark_server
     examples/benchmark_server.cpp
     src/framework_uvhttp.cpp
@@ -128,6 +134,20 @@ add_executable(benchmark_server
 )
 
 # 链接库
+target_link_libraries(declarative_dsl_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    -Wl,--end-group
+    pthread
+    dl
+)
+
 target_link_libraries(benchmark_server
     -Wl,--start-group
     uvhttp
@@ -246,6 +266,7 @@ target_compile_options(crud_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(auth_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(uvhttp_middleware_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(dsl_example PRIVATE -Wall -Wextra -O2)
+target_compile_options(declarative_dsl_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(schema_dsl_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(schema_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(upload_example PRIVATE -Wall -Wextra -O2)

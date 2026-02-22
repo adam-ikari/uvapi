@@ -7,7 +7,7 @@
 #include "../include/declarative_dsl.h"
 
 using namespace uvapi;
-using uvapi::declarative::PageParam;
+using namespace uvapi::declarative;
 
 int main() {
     std::cout << "=== 声明式 DSL 示例 ===" << std::endl;

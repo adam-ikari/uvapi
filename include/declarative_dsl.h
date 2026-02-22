@@ -243,9 +243,9 @@ struct ApiDefinition {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
         def.validation.required = false;
         
-        if (std::is_same<T, bool>::value) {
+        if constexpr (std::is_same<T, bool>::value) {
             def.default_value = opt.default_value ? "true" : "false";
-        } else if (std::is_same<T, std::string>::value) {
+        } else if constexpr (std::is_same<T, std::string>::value) {
             def.default_value = opt.default_value;
         } else {
             def.default_value = std::to_string(opt.default_value);
