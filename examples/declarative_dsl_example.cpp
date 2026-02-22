@@ -1,152 +1,121 @@
 /**
  * @file declarative_dsl_example.cpp
- * @brief 真正的声明式 DSL 使用示例
+ * @brief 声明式 DSL 哲学说明
  * 
- * 展示如何使用类似配置文件的声明式风格定义参数
+ * 解释什么是真正的声明式 DSL
  */
 
 #include <iostream>
-#include "../include/declarative_dsl.h"
+#include "../include/params_dsl.h"
 
 using namespace uvapi;
-using namespace uvapi::declarative;
+using namespace restful;
 
 int main() {
-    std::cout << "=== 真正的声明式 DSL 示例 ===" << std::endl;
+    std::cout << "=== 声明式 DSL 哲学 ===" << std::endl;
     std::cout << std::endl;
     
-    // ========== 示例 1: 用户列表 API 参数 ==========
-    std::cout << "示例 1: 用户列表 API 参数" << std::endl;
+    // ========== 什么是声明式？==========
+    std::cout << "========== 什么是声明式？ ==========" << std::endl;
+    std::cout << std::endl;
+    std::cout << "声明式的核心在于：描述「是什么」，而不是「怎么做」" << std::endl;
+    std::cout << "关键在于：不要有动作（Action）" << std::endl;
     std::cout << std::endl;
     
-    // 【真正的声明式 DSL - 类似配置文件】
-    // 使用初始化列表一次性声明所有参数
-    ParamGroup userListParams = {
-        range(Int("page", false, 1), 1, 1000),
-        range(Int("limit", false, 10), 1, 100),
-        oneOf(String("status", false, "active"), {"active", "inactive", "pending"}),
-        String("search", false, "")
-    };
-    
-    std::cout << "参数声明（类似配置文件）：" << std::endl;
-    std::cout << "ParamGroup userListParams = {" << std::endl;
-    std::cout << "    range(Int(\"page\", false, 1), 1, 1000)," << std::endl;
-    std::cout << "    range(Int(\"limit\", false, 10), 1, 100)," << std::endl;
-    std::cout << "    oneOf(String(\"status\", false, \"active\"), {\"active\", \"inactive\", \"pending\"})," << std::endl;
-    std::cout << "    String(\"search\", false, \"\")" << std::endl;
-    std::cout << "};" << std::endl;
+    // ========== 命令式 vs 声明式 ==========
+    std::cout << "========== 命令式 vs 声明式 ==========" << std::endl;
     std::cout << std::endl;
     
-    // ========== 示例 2: 用户创建 API 参数 ==========
-    std::cout << "示例 2: 用户创建 API 参数" << std::endl;
+    std::cout << "【命令式 - 有动作】" << std::endl;
+    std::cout << "param.setValue(1);      // 动作：设置值" << std::endl;
+    std::cout << "param.setRange(1, 100); // 动作：设置范围" << std::endl;
+    std::cout << "param.validate();       // 动作：执行验证" << std::endl;
     std::cout << std::endl;
     
-    // 【真正的声明式 DSL】
-    ParamGroup createUserParams = {
-        length(String("username", true), 3, 20),
-        pattern(String("email", true), "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
-        range(Int("age", false, 18), 18, 120),
-        Bool("active", false, true)
-    };
-    
-    std::cout << "参数声明（类似配置文件）：" << std::endl;
-    std::cout << "ParamGroup createUserParams = {" << std::endl;
-    std::cout << "    length(String(\"username\", true), 3, 20)," << std::endl;
-    std::cout << "    pattern(String(\"email\", true), \"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$\")," << std::endl;
-    std::cout << "    range(Int(\"age\", false, 18), 18, 120)," << std::endl;
-    std::cout << "    Bool(\"active\", false, true)" << std::endl;
-    std::cout << "};" << std::endl;
-    std::cout << std::endl;
-    
-    // ========== 示例 3: 产品列表 API 参数 ==========
-    std::cout << "示例 3: 产品列表 API 参数" << std::endl;
-    std::cout << std::endl;
-    
-    // 【真正的声明式 DSL】
-    ParamGroup productListParams = {
-        range(Int("page", false, 1), 1, 1000),
-        range(Int("limit", false, 20), 1, 100),
-        oneOf(String("sort", false, "id"), {"id", "name", "price", "created_at"}),
-        oneOf(String("order", false, "asc"), {"asc", "desc"}),
-        range(Int("min_price", false, 0), 0, 1000000),
-        range(Int("max_price", false, 1000000), 0, 1000000),
-        oneOf(String("category", false, ""), {"electronics", "clothing", "books", "food", "other"})
-    };
-    
-    std::cout << "参数声明（类似配置文件）：" << std::endl;
-    std::cout << "ParamGroup productListParams = {" << std::endl;
-    std::cout << "    range(Int(\"page\", false, 1), 1, 1000)," << std::endl;
-    std::cout << "    range(Int(\"limit\", false, 20), 1, 100)," << std::endl;
-    std::cout << "    oneOf(String(\"sort\", false, \"id\"), {\"id\", \"name\", \"price\", \"created_at\"})," << std::endl;
-    std::cout << "    oneOf(String(\"order\", false, \"asc\"), {\"asc\", \"desc\"})," << std::endl;
-    std::cout << "    range(Int(\"min_price\", false, 0), 0, 1000000)," << std::endl;
-    std::cout << "    range(Int(\"max_price\", false, 1000000), 0, 1000000)," << std::endl;
-    std::cout << "    oneOf(String(\"category\", false, \"\"), {\"electronics\", \"clothing\", \"books\", \"food\", \"other\"})" << std::endl;
-    std::cout << "};" << std::endl;
-    std::cout << std::endl;
-    
-    // ========== 对比：命令式 vs 声明式 ==========
-    std::cout << "========== 命令式 vs 声明式对比 ==========" << std::endl;
-    std::cout << std::endl;
-    
-    std::cout << "【命令式 DSL（链式调用）】" << std::endl;
+    std::cout << "【声明式 - 只有描述】" << std::endl;
     std::cout << "queryParam<int>(\"page\")" << std::endl;
-    std::cout << "    .optional()" << std::endl;
-    std::cout << "    .defaultValue(1)" << std::endl;
-    std::cout << "    .range(1, 1000);" << std::endl;
+    std::cout << "    .optional()          // 描述：是可选的（不是动作）" << std::endl;
+    std::cout << "    .defaultValue(1)     // 描述：默认值是1（不是动作）" << std::endl;
+    std::cout << "    .range(1, 1000);     // 描述：范围是[1, 1000]（不是动作）" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "【声明式 DSL（类似配置文件）】" << std::endl;
-    std::cout << "range(Int(\"page\", false, 1), 1, 1000)" << std::endl;
-    std::cout << std::endl;
-    
-    std::cout << "【完整声明式 DSL（初始化列表）】" << std::endl;
+    std::cout << "【声明式 - 初始化列表风格】" << std::endl;
     std::cout << "ParamGroup params = {" << std::endl;
     std::cout << "    range(Int(\"page\", false, 1), 1, 1000)," << std::endl;
     std::cout << "    range(Int(\"limit\", false, 10), 1, 100)" << std::endl;
     std::cout << "};" << std::endl;
     std::cout << std::endl;
     
-    // ========== 声明式 DSL 的特点 ==========
-    std::cout << "========== 声明式 DSL 的特点 ==========" << std::endl;
+    // ========== 链式调用也可以是声明式 ==========
+    std::cout << "========== 链式调用也可以是声明式 ==========" << std::endl;
     std::cout << std::endl;
-    std::cout << "1. 类似配置文件：使用初始化列表，一次性声明所有参数" << std::endl;
-    std::cout << "2. 函数式组合：使用 range(), length(), pattern() 等函数组合参数定义" << std::endl;
-    std::cout << "3. 不可变性：参数定义后不可修改，符合声明式原则" << std::endl;
-    std::cout << "4. 易于阅读：参数声明清晰，一目了然" << std::endl;
-    std::cout << "5. 易于维护：添加/删除参数只需修改初始化列表" << std::endl;
+    std::cout << "误解：链式调用 = 命令式" << std::endl;
+    std::cout << "正确：链式调用 ≠ 命令式" << std::endl;
     std::cout << std::endl;
-    
-    // ========== 参数定义函数说明 ==========
-    std::cout << "========== 参数定义函数 ==========" << std::endl;
-    std::cout << std::endl;
-    std::cout << "Int(name, required, default_value)" << std::endl;
-    std::cout << "  - name: 参数名" << std::endl;
-    std::cout << "  - required: 是否必需" << std::endl;
-    std::cout << "  - default_value: 默认值" << std::endl;
-    std::cout << std::endl;
-    std::cout << "String(name, required, default_value)" << std::endl;
-    std::cout << "Bool(name, required, default_value)" << std::endl;
-    std::cout << "Double(name, required, default_value)" << std::endl;
+    std::cout << "判断标准：是否包含动作？" << std::endl;
     std::cout << std::endl;
     
-    // ========== 验证规则函数说明 ==========
-    std::cout << "========== 验证规则函数 ==========" << std::endl;
-    std::cout << std::endl;
-    std::cout << "range(ParamDef, min, max)" << std::endl;
-    std::cout << "  - 整数范围验证" << std::endl;
-    std::cout << std::endl;
-    std::cout << "length(ParamDef, min, max)" << std::endl;
-    std::cout << "  - 字符串长度验证" << std::endl;
-    std::cout << std::endl;
-    std::cout << "pattern(ParamDef, regex)" << std::endl;
-    std::cout << "  - 正则表达式验证" << std::endl;
-    std::cout << std::endl;
-    std::cout << "oneOf(ParamDef, {value1, value2, ...})" << std::endl;
-    std::cout << "  - 枚举值验证" << std::endl;
+    std::cout << "【命令式链式调用】" << std::endl;
+    std::cout << "builder.addParam(\"page\")    // 动作：添加参数" << std::endl;
+    std::cout << "       .setOptional()        // 动作：设置为可选" << std::endl;
+    std::cout << "       .setDefault(1);       // 动作：设置默认值" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "声明式 DSL 示例完成！" << std::endl;
+    std::cout << "【声明式链式调用】" << std::endl;
+    std::cout << "queryParam<int>(\"page\")" << std::endl;
+    std::cout << "    .optional()          // 描述：是可选的" << std::endl;
+    std::cout << "    .defaultValue(1);     // 描述：默认值是1" << std::endl;
+    std::cout << std::endl;
+    
+    // ========== UVAPI 的 DSL 是声明式的 ==========
+    std::cout << "========== UVAPI 的 DSL 是声明式的 ==========" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "【示例 1：用户列表 API】" << std::endl;
+    std::cout << "// 声明参数（只有描述，没有动作）" << std::endl;
+    std::cout << "auto page = queryParam<int>(\"page\")" << std::endl;
+    std::cout << "    .optional()" << std::endl;
+    std::cout << "    .defaultValue(1)" << std::endl;
+    std::cout << "    .range(1, 1000);" << std::endl;
+    std::cout << std::endl;
+    std::cout << "// 这是在描述：page 是一个可选的整数参数，默认值1，范围[1, 1000]" << std::endl;
+    std::cout << "// 不是在执行：添加参数、设置属性等动作" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "【示例 2：用户创建 API】" << std::endl;
+    std::cout << "auto username = queryParam<std::string>(\"username\")" << std::endl;
+    std::cout << "    .required()" << std::endl;
+    std::cout << "    .length(3, 20);" << std::endl;
+    std::cout << std::endl;
+    std::cout << "// 这是在描述：username 是一个必需的字符串，长度[3, 20]" << std::endl;
+    std::cout << std::endl;
+    
+    // ========== 声明式的优势 ==========
+    std::cout << "========== 声明式的优势 ==========" << std::endl;
+    std::cout << std::endl;
+    std::cout << "1. 清晰性：一眼看出参数的属性" << std::endl;
+    std::cout << "2. 可组合性：可以自由组合描述" << std::endl;
+    std::cout << "3. 无副作用：描述不会产生副作用" << std::endl;
+    std::cout << "4. 易于测试：描述可以独立测试" << std::endl;
+    std::cout << "5. 符合直觉：「声明在前，处理在后」" << std::endl;
+    std::cout << std::endl;
+    
+    // ========== 总结 ==========
+    std::cout << "========== 总结 ==========" << std::endl;
+    std::cout << std::endl;
+    std::cout << "声明式不在于语法形式，而在于是否有动作" << std::endl;
+    std::cout << std::endl;
+    std::cout << "✓ 链式调用 + 无动作 = 声明式" << std::endl;
+    std::cout << "✓ 初始化列表 + 无动作 = 声明式" << std::endl;
+    std::cout << "✗ 链式调用 + 有动作 = 命令式" << std::endl;
+    std::cout << "✗ 初始化列表 + 有动作 = 命令式" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "UVAPI 的模板 DSL（queryParam<int>().optional().defaultValue(1)）" << std::endl;
+    std::cout << "是完全声明式的！" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "声明式 DSL 哲学说明完成！" << std::endl;
     
     return 0;
 }
