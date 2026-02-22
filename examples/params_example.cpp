@@ -80,54 +80,15 @@ int main() {
     std::cout << "- 带默认值：param.optional().defaultValue(1)  // 可选参数 + 默认值" << std::endl;
     std::cout << "- 必需参数：param.required()  // 必须提供，不能设置默认值" << std::endl;
     
-    // 示例 3: 自动类型推导 + 可选参数
-    std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
+    // 示例 4: 纯可选参数（无默认值）的使用
+    std::cout << "\n=== 示例 4: 纯可选参数 ===" << std::endl;
     
-    // 必需参数（有默认值）
-    int page_default = test_req.query<int>("page", 1);
-    std::cout << "page (default=1): " << page_default << std::endl;
-    
-    // 可选参数（无默认值）
-    auto sort_by = test_req.queryOpt<std::string>("sort_by");
-    if (sort_by.hasValue()) {
-        std::cout << "sort_by: " << sort_by.value() << std::endl;
+    auto keyword = test_req.query<std::string>("keyword");
+    if (keyword.hasValue()) {
+        std::cout << "keyword: " << keyword.value() << std::endl;
     } else {
-        std::cout << "sort_by: not provided (will use server default)" << std::endl;
+        std::cout << "keyword: not provided (no default value)" << std::endl;
     }
-    
-    // 使用 value_or() 简化代码
-    std::string order = test_req.queryOpt<std::string>("order").value_or("asc");
-    std::cout << "order: " << order << std::endl;
-    
-    // 示例 4: DSL 中声明默认值，handler 中无需再次处理
-    std::cout << "\n=== 示例 4: DSL 默认值自动应用 ===" << std::endl;
-    
-    // 模拟 DSL 中声明的参数（包含默认值）
-    ParamDefinition pageParam("page", ParamType::QUERY);
-    pageParam.validation.required = false;
-    pageParam.default_value = "1";  // DSL 中声明默认值
-    
-    ParamDefinition limitParam("limit", ParamType::QUERY);
-    limitParam.validation.required = false;
-    limitParam.default_value = "10";  // DSL 中声明默认值
-    
-    // 模拟框架自动应用默认值后的请求
-    HttpRequest req_with_defaults = test_req;
-    
-    // 框架会自动为不存在的可选参数应用默认值
-    if (req_with_defaults.query_params.find("page") == req_with_defaults.query_params.end() && !pageParam.default_value.empty()) {
-        req_with_defaults.query_params["page"] = pageParam.default_value;
-    }
-    if (req_with_defaults.query_params.find("limit") == req_with_defaults.query_params.end() && !limitParam.default_value.empty()) {
-        req_with_defaults.query_params["limit"] = limitParam.default_value;
-    }
-    
-    // Handler 中直接访问参数，无需处理默认值
-    int page_auto = req_with_defaults.query<int>("page");
-    int limit_auto = req_with_defaults.query<int>("limit");
-    
-    std::cout << "page (auto-applied default): " << page_auto << std::endl;
-    std::cout << "limit (auto-applied default): " << limit_auto << std::endl;
     
     // 示例 5: 必需参数和可选参数的区别
     std::cout << "\n=== 示例 5: 必需参数 vs 可选参数 ===" << std::endl;
