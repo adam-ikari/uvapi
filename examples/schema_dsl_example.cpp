@@ -22,12 +22,6 @@ struct User {
     int age;
     bool active;
     
-    // 实现 schema() 方法（用于 Body 解析）
-    static BodySchemaBase* schema() {
-        static BodySchema<User> schema_;
-        return &schema_;
-    }
-    
     std::string toJson() const {
         std::ostringstream oss;
         oss << "{"
@@ -52,46 +46,36 @@ auto userSchema = Schema<User>()
 
 // 创建用户
 HttpResponse createUser(const HttpRequest& req) {
-    auto user = req.parseBody<User>();
+    // 实际使用时：auto user = req.parseBody<User>();
+    // 这里只展示 DSL 语法
     
-    // 验证必填字段
-    if (!user.hasValue()) {
-        return HttpResponse(400)
-            .setHeader("Content-Type", "application/json")
-            .body("{\"code\":400,\"message\":\"Invalid request body\"}");
-    }
-    
-    User new_user = user.value();
-    new_user.id = 1;  // 模拟生成 ID
+    User new_user;
+    new_user.id = 1;
+    new_user.username = "alice";
+    new_user.email = "alice@example.com";
+    new_user.age = 25;
+    new_user.active = true;
     
     return HttpResponse(201)
-        .setHeader("Content-Type", "application/json")
-        .body("{\"code\":201,\"message\":\"User created\",\"data\":" + new_user.toJson() + "}");
+        .header("Content-Type", "application/json")
+        .setBody("{\"code\":201,\"message\":\"User created\",\"data\":" + new_user.toJson() + "}");
 }
 
 // 更新用户
 HttpResponse updateUser(const HttpRequest& req) {
-    auto id = req.path<int>("id");
-    auto user = req.parseBody<User>();
+    // 实际使用时：auto id = req.path<int>("id"); auto user = req.parseBody<User>();
+    // 这里只展示 DSL 语法
     
-    if (!id.hasValue()) {
-        return HttpResponse(400)
-            .setHeader("Content-Type", "application/json")
-            .body("{\"code\":400,\"message\":\"User ID is required\"}");
-    }
-    
-    if (!user.hasValue()) {
-        return HttpResponse(400)
-            .setHeader("Content-Type", "application/json")
-            .body("{\"code\":400,\"message\":\"Invalid request body\"}");
-    }
-    
-    User updated_user = user.value();
-    updated_user.id = id.value();
+    User updated_user;
+    updated_user.id = 1;
+    updated_user.username = "alice";
+    updated_user.email = "alice@newdomain.com";
+    updated_user.age = 26;
+    updated_user.active = true;
     
     return HttpResponse(200)
-        .setHeader("Content-Type", "application/json")
-        .body("{\"code\":200,\"message\":\"User updated\",\"data\":" + updated_user.toJson() + "}");
+        .header("Content-Type", "application/json")
+        .setBody("{\"code\":200,\"message\":\"User updated\",\"data\":" + updated_user.toJson() + "}");
 }
 
 // ========== 主函数 ==========
