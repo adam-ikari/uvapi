@@ -51,34 +51,40 @@ int main() {
         std::cout << "not provided" << std::endl;
     }
     
-    // 示例 3: Handler 中使用 optional<T>（推荐方式）
-    std::cout << "\n=== 示例 3: Handler 中使用 optional<T> ===" << std::endl;
+    // 示例 3: Handler 中使用 ParamsAccessor（自动类型推导）
+    std::cout << "\n=== 示例 3: Handler 中使用 ParamsAccessor ===" << std::endl;
     
-    // DSL 中声明参数：
-    // 1. 纯可选参数：param.optional()  // 不提供默认值
-    // 2. 带默认值：param.optional().defaultValue(1)  // 可选 + 默认值
-    // 3. 必需参数：param.required()  // 必须提供，不能设置默认值
+    // DSL 中声明参数类型：
+    // ParamGroup()
+    //     .addQueryParam("user_id", [](ParamBuilder& p) { p.required().asInt(); })
+    //     .addQueryParam("page", [](ParamBuilder& p) { p.optional().asInt().defaultValue(1); })
+    //     .addQueryParam("keyword", [](ParamBuilder& p) { p.optional().asString(); })
     
-    // Handler 中直接使用 optional<T>，无需处理默认值
-    auto page = test_req.query<int>("page");
-    auto limit = test_req.query<int>("limit");
-    auto sort = test_req.query<std::string>("sort");
+    // Handler 中使用 ParamsAccessor，根据 DSL 声明的类型访问参数
+    auto params = test_req.params();
     
-    // 框架已经自动应用了 DSL 中声明的默认值
-    std::cout << "page: " << page.value() << " (auto-applied default if not provided)" << std::endl;
-    std::cout << "limit: " << limit.value() << " (auto-applied default if not provided)" << std::endl;
-    std::cout << "sort: " << sort.value() << " (auto-applied default if not provided)" << std::endl;
+    // 根据参数名访问，无需手动指定类型（类型由 DSL 决定）
+    auto user_id = params.getInt("user_id");
+    auto page = params.getInt("page");
+    auto keyword = params.getString("keyword");
+    
+    if (user_id.hasValue()) {
+        std::cout << "user_id: " << user_id.value() << std::endl;
+    }
+    
+    if (page.hasValue()) {
+        std::cout << "page: " << page.value() << std::endl;
+    }
+    
+    if (keyword.hasValue()) {
+        std::cout << "keyword: " << keyword.value() << std::endl;
+    }
     
     std::cout << "\n推荐做法：" << std::endl;
-    std::cout << "1. 在 DSL 中声明参数和默认值" << std::endl;
-    std::cout << "2. Handler 中使用 req.query<int>(\"key\") 获取 optional<T>" << std::endl;
-    std::cout << "3. 直接使用 .value()，框架已自动应用默认值" << std::endl;
-    std::cout << "4. Handler 中无需手动处理默认值" << std::endl;
-    
-    std::cout << "\n参数声明类型：" << std::endl;
-    std::cout << "- 纯可选：param.optional()  // 无默认值，返回 empty optional" << std::endl;
-    std::cout << "- 带默认值：param.optional().defaultValue(1)  // 可选参数 + 默认值" << std::endl;
-    std::cout << "- 必需参数：param.required()  // 必须提供，不能设置默认值" << std::endl;
+    std::cout << "1. 在 DSL 中使用 asInt()/asString() 等方法声明参数类型" << std::endl;
+    std::cout << "2. Handler 中使用 req.params() 获取 ParamsAccessor" << std::endl;
+    std::cout << "3. 根据参数类型调用对应的 getXxx() 方法" << std::endl;
+    std::cout << "4. 类型由 DSL 决定，Handler 中无需再次指定" << std::endl;
     
     // 示例 4: 纯可选参数（无默认值）的使用
     std::cout << "\n=== 示例 4: 纯可选参数 ===" << std::endl;
