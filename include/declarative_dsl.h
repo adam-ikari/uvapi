@@ -35,14 +35,28 @@ struct PageParam {
     int default_page;
     int default_limit;
     
-    PageParam(int page = 1, int limit = 10) 
+    PageParam() : default_page(1), default_limit(10) {}
+    PageParam(int page, int limit) 
         : default_page(page), default_limit(limit) {}
+    
+    static PageParam page(int value) {
+        PageParam param;
+        param.default_page = value;
+        return param;
+    }
+    
+    static PageParam limit(int value) {
+        PageParam param;
+        param.default_limit = value;
+        return param;
+    }
 };
 
 struct SearchParam {
     std::string default_value;
     
-    SearchParam(const std::string& def = "") 
+    SearchParam() : default_value("") {}
+    explicit SearchParam(const std::string& def) 
         : default_value(def) {}
 };
 
@@ -52,20 +66,48 @@ struct SortParam {
     std::vector<std::string> valid_fields;
     std::vector<std::string> valid_orders;
     
-    SortParam(const std::string& field = "id", 
-              const std::string& order = "asc",
+    SortParam() 
+        : default_field("id"), default_order("asc")
+        , valid_fields({"id", "created_at"}), valid_orders({"asc", "desc"}) {}
+    
+    SortParam(const std::string& field, const std::string& order,
               const std::vector<std::string>& fields = {"id", "created_at"},
               const std::vector<std::string>& orders = {"asc", "desc"})
         : default_field(field), default_order(order)
         , valid_fields(fields), valid_orders(orders) {}
+    
+    static SortParam field(const std::string& field) {
+        SortParam param;
+        param.default_field = field;
+        return param;
+    }
+    
+    static SortParam order(const std::string& order) {
+        SortParam param;
+        param.default_order = order;
+        return param;
+    }
 };
 
 struct RangeParam {
     int default_min;
     int default_max;
     
-    RangeParam(int min_val = 0, int max_val = 1000000) 
+    RangeParam() : default_min(0), default_max(1000000) {}
+    RangeParam(int min_val, int max_val) 
         : default_min(min_val), default_max(max_val) {}
+    
+    static RangeParam min(int value) {
+        RangeParam param;
+        param.default_min = value;
+        return param;
+    }
+    
+    static RangeParam max(int value) {
+        RangeParam param;
+        param.default_max = value;
+        return param;
+    }
 };
 
 // ========== API 定义 ==========

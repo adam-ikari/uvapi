@@ -7,29 +7,29 @@
 #include "../include/declarative_dsl.h"
 
 using namespace uvapi;
-using namespace uvapi::declarative;
+using uvapi::declarative::PageParam;
 
 int main() {
     std::cout << "=== 声明式 DSL 示例 ===" << std::endl;
     
     ApiBuilder api;
     
-    // 示例 1: 使用便捷方法定义用户列表 API
+    // 示例 1: 使用命名参数定义用户列表 API
     api.get("/api/users")
-        .pagination(PageParam(1, 20))  // 分页参数
-        .search(SearchParam(""))          // 搜索参数
-        .sort(SortParam("created_at", "desc", {"id", "name", "created_at"}, {"asc", "desc"}))  // 排序参数
+        .pagination(PageParam().page(1).limit(20))  // 分页参数
+        .search(SearchParam())                         // 搜索参数
+        .sort(SortParam().field("created_at").order("desc"))  // 排序参数
         .statusFilter({"active", "inactive", "pending"}, "active")  // 状态筛选
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
-    // 示例 2: 使用便捷方法定义产品列表 API
+    // 示例 2: 使用命名参数定义产品列表 API
     api.get("/api/products")
-        .pagination(PageParam(1, 20))
-        .search(SearchParam(""))
-        .sort(SortParam("created_at", "desc", {"id", "name", "price", "created_at"}, {"asc", "desc"}))
-        .range("min_price", "max_price", RangeParam(0, 1000000))  // 价格范围
+        .pagination(PageParam().page(1).limit(20))
+        .search(SearchParam())
+        .sort(SortParam().field("created_at").order("desc"))
+        .range("min_price", "max_price", RangeParam().min(0).max(1000000))  // 价格范围
         .statusFilter({"available", "out_of_stock", "discontinued"}, "available")
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
@@ -54,7 +54,7 @@ int main() {
     
     // 示例 5: 订单列表 API（时间范围筛选）
     api.get("/api/orders")
-        .pagination(PageParam(1, 20))
+        .pagination(PageParam().page(1).limit(20))
         .dateRange("start_date", "end_date")  // 时间范围
         .statusFilter({"pending", "paid", "shipped", "completed", "cancelled"}, "pending")
         .handle([](const HttpRequest& req) -> HttpResponse {
@@ -63,9 +63,9 @@ int main() {
     
     // 示例 6: 日志查询 API
     api.get("/api/logs")
-        .pagination(PageParam(1, 100))
+        .pagination(PageParam().page(1).limit(100))
         .dateRange("start_time", "end_time")
-        .search(SearchParam(""))
+        .search(SearchParam())
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
