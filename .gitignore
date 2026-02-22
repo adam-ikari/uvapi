@@ -19,7 +19,6 @@ benchmark_server
 test_multi_server
 test_server
 example_*
-test_*
 
 # IDE
 .vscode/
