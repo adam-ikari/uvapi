@@ -80,7 +80,144 @@ struct ParamTypeInfo {
         : data_type(type), type_name(name) {}
 };
 
-// ========== 增强的参数构建器 ==========
+// ========== 增强的参数构建器（模板版本）==========
+
+template<typename T>
+class ParamBuilderT {
+private:
+    restful::ParamDefinition param_;
+    ParamDataType data_type_;
+    std::string description_;
+    std::string example_;
+    
+public:
+    ParamBuilderT(const std::string& name, restful::ParamType param_type)
+        : param_(name, param_type), data_type_(ParamDataType::STRING) {
+        // 自动设置类型
+        setTypeFromTemplate();
+    }
+    
+private:
+    // 根据模板参数自动设置类型
+    void setTypeFromTemplate() {
+        if (std::is_same<T, int>::value) {
+            data_type_ = ParamDataType::INT32;
+            param_.data_type = 1;
+        } else if (std::is_same<T, int64_t>::value) {
+            data_type_ = ParamDataType::INT64;
+            param_.data_type = 2;
+        } else if (std::is_same<T, double>::value) {
+            data_type_ = ParamDataType::FP64;
+            param_.data_type = 3;
+        } else if (std::is_same<T, float>::value) {
+            data_type_ = ParamDataType::FP32;
+            param_.data_type = 4;
+        } else if (std::is_same<T, bool>::value) {
+            data_type_ = ParamDataType::BOOLEAN;
+            param_.data_type = 5;
+        } else if (std::is_same<T, std::string>::value) {
+            data_type_ = ParamDataType::STRING;
+            param_.data_type = 0;
+        }
+    }
+    
+public:
+    // ========== 必填/可选 ==========
+    
+    ParamBuilderT& required() {
+        param_.validation.required = true;
+        return *this;
+    }
+    
+    ParamBuilderT& optional() {
+        param_.validation.required = false;
+        return *this;
+    }
+    
+    // ========== 默认值（类型安全）==========
+    
+    ParamBuilderT& defaultValue(const T& value) {
+        if (std::is_same<T, bool>::value) {
+            param_.default_value = value ? "true" : "false";
+        } else {
+            param_.default_value = std::to_string(value);
+        }
+        return *this;
+    }
+    
+    // ========== 验证规则 ==========
+    
+    // 范围验证（整数）
+    template<typename U = T>
+    typename std::enable_if<std::is_integral<U>::value, ParamBuilderT&>::type
+    range(U min_val, U max_val) {
+        param_.validation.min_value = static_cast<int>(min_val);
+        param_.validation.max_value = static_cast<int>(max_val);
+        param_.validation.has_min = true;
+        param_.validation.has_max = true;
+        return *this;
+    }
+    
+    // 范围验证（浮点数）
+    template<typename U = T>
+    typename std::enable_if<std::is_floating_point<U>::value, ParamBuilderT&>::type
+    range(U min_val, U max_val) {
+        param_.validation.min_double = static_cast<double>(min_val);
+        param_.validation.max_double = static_cast<double>(max_val);
+        param_.validation.has_min = true;
+        param_.validation.has_max = true;
+        return *this;
+    }
+    
+    // 长度验证（字符串）
+    template<typename U = T>
+    typename std::enable_if<std::is_same<U, std::string>::value, ParamBuilderT&>::type
+    length(size_t min_len, size_t max_len) {
+        param_.validation.min_length = min_len;
+        param_.validation.max_length = max_len;
+        param_.validation.has_min_length = true;
+        param_.validation.has_max_length = true;
+        return *this;
+    }
+    
+    // 正则验证（字符串）
+    template<typename U = T>
+    typename std::enable_if<std::is_same<U, std::string>::value, ParamBuilderT&>::type
+    pattern(const std::string& regex) {
+        param_.validation.pattern = regex;
+        param_.validation.has_pattern = true;
+        return *this;
+    }
+    
+    // 枚举验证
+    ParamBuilderT& oneOf(const std::vector<std::string>& values) {
+        param_.validation.enum_values = values;
+        param_.validation.has_enum = true;
+        return *this;
+    }
+    
+    // ========== 获取参数定义 ==========
+    
+    const restful::ParamDefinition& get() const {
+        return param_;
+    }
+};
+
+// ========== 便捷函数 ==========
+
+// 创建查询参数
+template<typename T>
+ParamBuilderT<T> queryParam(const std::string& name) {
+    return ParamBuilderT<T>(name, restful::ParamType::QUERY);
+}
+
+// 创建路径参数
+template<typename T>
+ParamBuilderT<T> pathParam(const std::string& name) {
+    return ParamBuilderT<T>(name, restful::ParamType::PATH);
+}
+
+// ========== 增强的参数构建器（旧版本，保留兼容性）==========
 
 class EnhancedParamBuilder {
 private:

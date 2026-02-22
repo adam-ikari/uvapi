@@ -32,6 +32,25 @@ int main() {
     std::cout << "active (bool): " << (p.getQueryBool("active", false) ? "true" : "false") << std::endl;
     std::cout << "missing (int): " << p.getQueryInt("missing", 99) << std::endl;
     
+    // 示例 2: 模板 DSL 声明参数（简化版）
+    std::cout << "\n=== 示例 2: 模板 DSL 参数声明 ===" << std::endl;
+    
+    // 使用模板 DSL，自动推导类型，更简洁
+    auto pageParam = queryParam<int>("page").optional().defaultValue(1);
+    auto limitParam = queryParam<int>("limit").optional().defaultValue(10);
+    auto searchParam = queryParam<std::string>("search").optional();
+    auto activeParam = queryParam<bool>("active").optional().defaultValue(false);
+    
+    std::cout << "模板 DSL 示例：" << std::endl;
+    std::cout << "- queryParam<int>(\"page\").optional().defaultValue(1)" << std::endl;
+    std::cout << "- queryParam<std::string>(\"search\").optional()" << std::endl;
+    std::cout << "- queryParam<bool>(\"active\").optional().defaultValue(false)" << std::endl;
+    
+    std::cout << "\n优势：" << std::endl;
+    std::cout << "- 类型自动推导，无需手动调用 asInt()" << std::endl;
+    std::cout << "- defaultValue() 类型安全，编译时检查" << std::endl;
+    std::cout << "- 更简洁的 API" << std::endl;
+    
     // 示例 2: 可选参数 API（返回 optional<T>）
     std::cout << "\n=== 示例 2: 可选参数 API ===" << std::endl;
     
