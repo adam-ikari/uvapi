@@ -40,13 +40,31 @@ namespace uvapi {
  *    - 字符串转数字使用 strtol/strtod + errno 检查，而非 std::stoi/stod
  *    - 确保可预测的行为和更好的性能
  * 
- * 2. **零全局变量**: 支持多实例，测试友好
+ * 2. **声明式 (Declarative)**: DSL 采用声明式设计，而非命令式
+ *    - 使用流式链式 API (fluent chain API) 定义路由、参数、Schema
+ *    - Builder 模式提供清晰的声明式接口
+ *    - 类型安全成员指针自动计算偏移量，无需手动 offsetof
+ *    - 关注"做什么"而非"怎么做"
  * 
- * 3. **RAII 优先**: 自动资源管理，避免内存泄漏
+ * 3. **自动解析参数 (Automatic Parameter Parsing)**: 框架自动解析参数
+ *    - 自动从 URL 提取查询参数和路径参数
+ *    - ParamAccessor 提供类型安全的参数访问
+ *    - 自动类型转换 (string→int/double/bool)
+ *    - 支持默认值设置
  * 
- * 4. **类型安全**: 编译时类型检查
+ * 4. **自动校验 (Automatic Validation)**: 声明式的验证规则自动执行
+ *    - 通过 DSL 声明验证规则 (required, min, max, pattern, enum)
+ *    - 框架在请求处理时自动执行验证
+ *    - 验证失败自动返回 400 Bad Request 及详细错误信息
+ *    - 支持内置格式验证 (email, url, uuid, date, datetime, ipv4)
  * 
- * 5. **高性能优先**: 零拷贝、事件驱动
+ * 5. **零全局变量**: 支持多实例，测试友好
+ * 
+ * 6. **RAII 优先**: 自动资源管理，避免内存泄漏
+ * 
+ * 7. **类型安全**: 编译时类型检查
+ * 
+ * 8. **高性能优先**: 零拷贝、事件驱动
  */
 
 template<typename T>
