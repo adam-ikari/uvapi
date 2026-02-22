@@ -36,7 +36,7 @@ int main() {
     std::cout << "\n=== 示例 2: 可选参数 API ===" << std::endl;
     
     std::cout << "page (optional<int>): ";
-    auto page_opt = test_req.queryOpt<int>("page");
+    auto page_opt = test_req.query<int>("page");
     if (page_opt.hasValue()) {
         std::cout << page_opt.value() << std::endl;
     } else {
@@ -44,38 +44,31 @@ int main() {
     }
     
     std::cout << "missing (optional<int>): ";
-    auto missing_opt = test_req.queryOpt<int>("missing");
+    auto missing_opt = test_req.query<int>("missing");
     if (missing_opt.hasValue()) {
         std::cout << missing_opt.value() << std::endl;
     } else {
         std::cout << "not provided" << std::endl;
     }
     
-    // 使用 value_or() 方法提供默认值
-    int limit = test_req.queryOpt<int>("limit").value_or(10);
-    std::cout << "limit (with default): " << limit << std::endl;
-    
-    std::string search = test_req.queryOpt<std::string>("search").value_or("");
-    std::cout << "search (with default): \"" << search << "\"" << std::endl;
-    
     // 示例 3: 自动类型推导（更简洁）
     std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
     
     // 通过默认值自动推导类型
-    auto page_auto = test_req.queryOpt("page", 1);  // 自动推导为 optional<int>
-    auto limit_auto = test_req.queryOpt("limit", 10);  // 自动推导为 optional<int>
-    auto sort_auto = test_req.queryOpt("sort", std::string("id"));  // 自动推导为 optional<std::string>
-    auto active_auto = test_req.queryOpt("active", false);  // 自动推导为 optional<bool>
+    int page_auto = test_req.query("page", 1);  // 自动推导为 int
+    int limit_auto = test_req.query("limit", 10);  // 自动推导为 int
+    std::string sort_auto = test_req.query("sort", std::string("id"));  // 自动推导为 std::string
+    bool active_auto = test_req.query("active", false);  // 自动推导为 bool
     
-    std::cout << "page (auto-deduced): " << page_auto.value() << std::endl;
-    std::cout << "limit (auto-deduced): " << limit_auto.value() << std::endl;
-    std::cout << "sort (auto-deduced): " << sort_auto.value() << std::endl;
-    std::cout << "active (auto-deduced): " << (active_auto.value() ? "true" : "false") << std::endl;
+    std::cout << "page (auto-deduced): " << page_auto << std::endl;
+    std::cout << "limit (auto-deduced): " << limit_auto << std::endl;
+    std::cout << "sort (auto-deduced): " << sort_auto << std::endl;
+    std::cout << "active (auto-deduced): " << (active_auto ? "true" : "false") << std::endl;
     
     // 对比：旧方式 vs 新方式
     std::cout << "\n对比：" << std::endl;
-    std::cout << "旧方式: req.queryOpt<int>(\"page\", 1)" << std::endl;
-    std::cout << "新方式: req.queryOpt(\"page\", 1)  // 类型自动推导" << std::endl;
+    std::cout << "可选参数: req.query<int>(\"page\")  // 返回 optional<int>" << std::endl;
+    std::cout << "带默认值: req.query(\"page\", 1)  // 返回 int，类型自动推导" << std::endl;
     
     // 示例 3: 自动类型推导 + 可选参数
     std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
@@ -147,17 +140,17 @@ int main() {
     test_req.path_params["id"] = "123";
     test_req.path_params["category"] = "electronics";
     
-    auto id = test_req.pathOpt<int>("id");
+    auto id = test_req.path<int>("id");
     if (id.hasValue()) {
         std::cout << "id: " << id.value() << std::endl;
     } else {
         std::cout << "id: not provided" << std::endl;
     }
     
-    auto category = test_req.pathOpt<std::string>("category");
-    std::cout << "category: " << category.value_or("default") << std::endl;
+    std::string category = test_req.path("category", "default");
+    std::cout << "category: " << category << std::endl;
     
-    auto missing_path = test_req.pathOpt<std::string>("missing");
+    auto missing_path = test_req.path<std::string>("missing");
     if (missing_path.hasValue()) {
         std::cout << "missing_path: " << missing_path.value() << std::endl;
     } else {

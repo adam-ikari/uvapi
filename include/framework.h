@@ -1845,15 +1845,9 @@ struct HttpRequest {
     // 路径参数（智能推断类型，Zero Exceptions）
     // 使用 strtol/strtod + errno 替代 std::stoll/std::stod，避免异常抛出
     
-    // 路径参数 - 必需参数（返回 T）
-    template<typename T>
-    T path(const std::string& key) const {
-        return path<T>(key, T());
-    }
-
     // 路径参数 - 可选参数（返回 optional<T>）
     template<typename T>
-    optional<T> pathOpt(const std::string& key) const {
+    optional<T> path(const std::string& key) const {
         std::map<std::string, std::string>::const_iterator it = path_params.find(key);
         if (it == path_params.end()) {
             return optional<T>();  // 无值
@@ -1862,38 +1856,17 @@ struct HttpRequest {
         const std::string& value = it->second;
         return parseValue<T>(value);
     }
-    
-    // 路径参数 - 可选参数（自动类型推导，基于默认值）
-    template<typename T>
-    optional<T> pathOpt(const std::string& key, const T& default_value) const {
-        optional<T> result = pathOpt<T>(key);
-        if (!result.hasValue()) {
-            result = optional<T>(default_value);
-        }
-        return result;
-    }
 
-    // 路径参数 - 带默认值（返回 T）
+    // 路径参数 - 带默认值（返回 T，自动类型推导）
     template<typename T>
     T path(const std::string& key, const T& default_value) const {
-        std::map<std::string, std::string>::const_iterator it = path_params.find(key);
-        if (it == path_params.end()) {
-            return default_value;
-        }
-
-        const std::string& value = it->second;
-        return parseValue<T>(value).value_or(default_value);
-    }
-
-    // 查询参数 - 必需参数（返回 T）
-    template<typename T>
-    T query(const std::string& key) const {
-        return query<T>(key, T());
+        optional<T> result = path<T>(key);
+        return result.hasValue() ? result.value() : default_value;
     }
 
     // 查询参数 - 可选参数（返回 optional<T>）
     template<typename T>
-    optional<T> queryOpt(const std::string& key) const {
+    optional<T> query(const std::string& key) const {
         std::map<std::string, std::string>::const_iterator it = query_params.find(key);
         if (it == query_params.end()) {
             return optional<T>();  // 无值
@@ -1902,20 +1875,13 @@ struct HttpRequest {
         const std::string& value = it->second;
         return parseValue<T>(value);
     }
-    
-    // 查询参数 - 可选参数（自动类型推导，基于默认值）
-    template<typename T>
-    optional<T> queryOpt(const std::string& key, const T& default_value) const {
-        optional<T> result = queryOpt<T>(key);
-        if (!result.hasValue()) {
-            result = optional<T>(default_value);
-        }
-        return result;
-    }
 
-    // 查询参数 - 带默认值（返回 T）
+    // 查询参数 - 带默认值（返回 T，自动类型推导）
     template<typename T>
-    T query(const std::string& key, const T& default_value) const;
+    T query(const std::string& key, const T& default_value) const {
+        optional<T> result = query<T>(key);
+        return result.hasValue() ? result.value() : default_value;
+    }
 
 private:
     // 辅助函数：安全地解析字符串值为指定类型（返回 optional<T>）
