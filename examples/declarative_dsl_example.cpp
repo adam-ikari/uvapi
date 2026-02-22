@@ -1,8 +1,8 @@
 /**
  * @file declarative_dsl_example.cpp
- * @brief 声明式 DSL 使用示例
+ * @brief 真正的声明式 DSL 使用示例
  * 
- * 展示如何使用声明式风格的 DSL 定义参数
+ * 展示如何使用类似配置文件的声明式风格定义参数
  */
 
 #include <iostream>
@@ -12,95 +12,77 @@ using namespace uvapi;
 using namespace uvapi::declarative;
 
 int main() {
-    std::cout << "=== 声明式 DSL 示例 ===" << std::endl;
+    std::cout << "=== 真正的声明式 DSL 示例 ===" << std::endl;
     std::cout << std::endl;
     
     // ========== 示例 1: 用户列表 API 参数 ==========
     std::cout << "示例 1: 用户列表 API 参数" << std::endl;
     std::cout << std::endl;
     
-    // 声明式定义参数（一次性声明所有信息）
-    auto page = OptionalInt("page", 1);
-    auto limit = OptionalInt("limit", 10);
-    auto status = OptionalString("status", "active");
-    auto search = OptionalString("search", "");
+    // 【真正的声明式 DSL - 类似配置文件】
+    // 使用初始化列表一次性声明所有参数
+    ParamGroup userListParams = {
+        range(Int("page", false, 1), 1, 1000),
+        range(Int("limit", false, 10), 1, 100),
+        oneOf(String("status", false, "active"), {"active", "inactive", "pending"}),
+        String("search", false, "")
+    };
     
-    // 应用验证规则
-    page = Range(page, 1, 1000);
-    limit = Range(limit, 1, 100);
-    status = OneOf(status, {"active", "inactive", "pending"});
-    
-    // 创建参数组
-    ParamGroup userListParams;
-    userListParams.add(page).add(limit).add(status).add(search);
-    
-    std::cout << "参数定义:" << std::endl;
-    std::cout << "  page: " << (page.required ? "required" : "optional") << ", default=" << page.default_value;
-    if (page.has_range) std::cout << ", range=[" << page.min_value << ", " << page.max_value << "]";
-    std::cout << std::endl;
-    
-    std::cout << "  limit: " << (limit.required ? "required" : "optional") << ", default=" << limit.default_value;
-    if (limit.has_range) std::cout << ", range=[" << limit.min_value << ", " << limit.max_value << "]";
-    std::cout << std::endl;
-    
-    std::cout << "  status: " << (status.required ? "required" : "optional") << ", default=" << status.default_value;
-    if (status.has_enum) {
-        std::cout << ", enum=[";
-        for (size_t i = 0; i < status.enum_values.size(); ++i) {
-            if (i > 0) std::cout << ", ";
-            std::cout << status.enum_values[i];
-        }
-        std::cout << "]";
-    }
-    std::cout << std::endl;
-    
-    std::cout << "  search: " << (search.required ? "required" : "optional") << ", default='" << search.default_value << "'";
-    std::cout << std::endl;
+    std::cout << "参数声明（类似配置文件）：" << std::endl;
+    std::cout << "ParamGroup userListParams = {" << std::endl;
+    std::cout << "    range(Int(\"page\", false, 1), 1, 1000)," << std::endl;
+    std::cout << "    range(Int(\"limit\", false, 10), 1, 100)," << std::endl;
+    std::cout << "    oneOf(String(\"status\", false, \"active\"), {\"active\", \"inactive\", \"pending\"})," << std::endl;
+    std::cout << "    String(\"search\", false, \"\")" << std::endl;
+    std::cout << "};" << std::endl;
     std::cout << std::endl;
     
     // ========== 示例 2: 用户创建 API 参数 ==========
     std::cout << "示例 2: 用户创建 API 参数" << std::endl;
     std::cout << std::endl;
     
-    // 声明式定义参数
-    auto username = RequiredString("username");
-    auto email = RequiredString("email");
-    auto age = OptionalInt("age", 18);
-    auto active = OptionalBool("active", true);
+    // 【真正的声明式 DSL】
+    ParamGroup createUserParams = {
+        length(String("username", true), 3, 20),
+        pattern(String("email", true), "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
+        range(Int("age", false, 18), 18, 120),
+        Bool("active", false, true)
+    };
     
-    // 应用验证规则
-    username = Length(username, 3, 20);
-    email = Pattern(email, "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    age = Range(age, 18, 120);
-    
-    ParamGroup createUserParams;
-    createUserParams.add(username).add(email).add(age).add(active);
-    
-    std::cout << "参数定义:" << std::endl;
-    std::cout << "  username: " << (username.required ? "required" : "optional");
-    if (username.has_length) std::cout << ", length=[" << username.min_length << ", " << username.max_length << "]";
+    std::cout << "参数声明（类似配置文件）：" << std::endl;
+    std::cout << "ParamGroup createUserParams = {" << std::endl;
+    std::cout << "    length(String(\"username\", true), 3, 20)," << std::endl;
+    std::cout << "    pattern(String(\"email\", true), \"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$\")," << std::endl;
+    std::cout << "    range(Int(\"age\", false, 18), 18, 120)," << std::endl;
+    std::cout << "    Bool(\"active\", false, true)" << std::endl;
+    std::cout << "};" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "  email: " << (email.required ? "required" : "optional");
-    if (email.has_pattern) std::cout << ", pattern=" << email.pattern;
+    // ========== 示例 3: 产品列表 API 参数 ==========
+    std::cout << "示例 3: 产品列表 API 参数" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "  age: " << (age.required ? "required" : "optional") << ", default=" << age.default_value;
-    if (age.has_range) std::cout << ", range=[" << age.min_value << ", " << age.max_value << "]";
-    std::cout << std::endl;
+    // 【真正的声明式 DSL】
+    ParamGroup productListParams = {
+        range(Int("page", false, 1), 1, 1000),
+        range(Int("limit", false, 20), 1, 100),
+        oneOf(String("sort", false, "id"), {"id", "name", "price", "created_at"}),
+        oneOf(String("order", false, "asc"), {"asc", "desc"}),
+        range(Int("min_price", false, 0), 0, 1000000),
+        range(Int("max_price", false, 1000000), 0, 1000000),
+        oneOf(String("category", false, ""), {"electronics", "clothing", "books", "food", "other"})
+    };
     
-    std::cout << "  active: " << (active.required ? "required" : "optional") << ", default=" << (active.default_value ? "true" : "false");
-    std::cout << std::endl;
-    std::cout << std::endl;
-    
-    // ========== 示例 3: 完整的路由配置 ==========
-    std::cout << "示例 3: 完整的路由配置" << std::endl;
-    std::cout << std::endl;
-    
-    std::cout << "// 路由配置示例" << std::endl;
-    std::cout << "api.get(\"/api/users\", [](const HttpRequest& req) -> HttpResponse {" << std::endl;
-    std::cout << "    return getUsers(req);" << std::endl;
-    std::cout << "}, QueryParams(page, limit, status, search));" << std::endl;
+    std::cout << "参数声明（类似配置文件）：" << std::endl;
+    std::cout << "ParamGroup productListParams = {" << std::endl;
+    std::cout << "    range(Int(\"page\", false, 1), 1, 1000)," << std::endl;
+    std::cout << "    range(Int(\"limit\", false, 20), 1, 100)," << std::endl;
+    std::cout << "    oneOf(String(\"sort\", false, \"id\"), {\"id\", \"name\", \"price\", \"created_at\"})," << std::endl;
+    std::cout << "    oneOf(String(\"order\", false, \"asc\"), {\"asc\", \"desc\"})," << std::endl;
+    std::cout << "    range(Int(\"min_price\", false, 0), 0, 1000000)," << std::endl;
+    std::cout << "    range(Int(\"max_price\", false, 1000000), 0, 1000000)," << std::endl;
+    std::cout << "    oneOf(String(\"category\", false, \"\"), {\"electronics\", \"clothing\", \"books\", \"food\", \"other\"})" << std::endl;
+    std::cout << "};" << std::endl;
     std::cout << std::endl;
     
     // ========== 对比：命令式 vs 声明式 ==========
@@ -114,23 +96,54 @@ int main() {
     std::cout << "    .range(1, 1000);" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "【声明式 DSL】" << std::endl;
-    std::cout << "auto page = OptionalInt(\"page\", 1);" << std::endl;
-    std::cout << "page = Range(page, 1, 1000);" << std::endl;
+    std::cout << "【声明式 DSL（类似配置文件）】" << std::endl;
+    std::cout << "range(Int(\"page\", false, 1), 1, 1000)" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "或更简洁的方式（推荐）：" << std::endl;
-    std::cout << "auto page = Range(OptionalInt(\"page\", 1), 1, 1000);" << std::endl;
+    std::cout << "【完整声明式 DSL（初始化列表）】" << std::endl;
+    std::cout << "ParamGroup params = {" << std::endl;
+    std::cout << "    range(Int(\"page\", false, 1), 1, 1000)," << std::endl;
+    std::cout << "    range(Int(\"limit\", false, 10), 1, 100)" << std::endl;
+    std::cout << "};" << std::endl;
     std::cout << std::endl;
     
-    // ========== 优势总结 ==========
-    std::cout << "========== 声明式 DSL 优势 ==========" << std::endl;
+    // ========== 声明式 DSL 的特点 ==========
+    std::cout << "========== 声明式 DSL 的特点 ==========" << std::endl;
     std::cout << std::endl;
-    std::cout << "1. 一次性声明：所有参数信息在定义时就确定" << std::endl;
-    std::cout << "2. 类型明确：通过函数名明确类型（OptionalInt, RequiredString 等）" << std::endl;
-    std::cout << "3. 易于阅读：参数定义清晰，无需跟随链式调用" << std::endl;
-    std::cout << "4. 易于测试：可以单独定义和测试每个参数" << std::endl;
-    std::cout << "5. 声明式风格：符合\"声明在前，处理在后\"的设计哲学" << std::endl;
+    std::cout << "1. 类似配置文件：使用初始化列表，一次性声明所有参数" << std::endl;
+    std::cout << "2. 函数式组合：使用 range(), length(), pattern() 等函数组合参数定义" << std::endl;
+    std::cout << "3. 不可变性：参数定义后不可修改，符合声明式原则" << std::endl;
+    std::cout << "4. 易于阅读：参数声明清晰，一目了然" << std::endl;
+    std::cout << "5. 易于维护：添加/删除参数只需修改初始化列表" << std::endl;
+    std::cout << std::endl;
+    
+    // ========== 参数定义函数说明 ==========
+    std::cout << "========== 参数定义函数 ==========" << std::endl;
+    std::cout << std::endl;
+    std::cout << "Int(name, required, default_value)" << std::endl;
+    std::cout << "  - name: 参数名" << std::endl;
+    std::cout << "  - required: 是否必需" << std::endl;
+    std::cout << "  - default_value: 默认值" << std::endl;
+    std::cout << std::endl;
+    std::cout << "String(name, required, default_value)" << std::endl;
+    std::cout << "Bool(name, required, default_value)" << std::endl;
+    std::cout << "Double(name, required, default_value)" << std::endl;
+    std::cout << std::endl;
+    
+    // ========== 验证规则函数说明 ==========
+    std::cout << "========== 验证规则函数 ==========" << std::endl;
+    std::cout << std::endl;
+    std::cout << "range(ParamDef, min, max)" << std::endl;
+    std::cout << "  - 整数范围验证" << std::endl;
+    std::cout << std::endl;
+    std::cout << "length(ParamDef, min, max)" << std::endl;
+    std::cout << "  - 字符串长度验证" << std::endl;
+    std::cout << std::endl;
+    std::cout << "pattern(ParamDef, regex)" << std::endl;
+    std::cout << "  - 正则表达式验证" << std::endl;
+    std::cout << std::endl;
+    std::cout << "oneOf(ParamDef, {value1, value2, ...})" << std::endl;
+    std::cout << "  - 枚举值验证" << std::endl;
     std::cout << std::endl;
     
     std::cout << "声明式 DSL 示例完成！" << std::endl;
