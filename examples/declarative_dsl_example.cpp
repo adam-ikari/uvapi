@@ -16,34 +16,34 @@ int main() {
     
     // 用户列表 API
     api.get("/api/users")
-        .param("page", Int())                    // 必需整数
-        .param("limit", Int(10))                // 可选整数，默认值 10
-        .param("status", String("active"))      // 可选字符串，默认值 "active"
-        .param("search", String(""))            // 可选字符串，默认值 ""
+        .param("page", Required<int>())                    // 必需整数
+        .param("limit", OptionalWithDefault<int>(10))      // 可选整数，默认值 10
+        .param("status", OptionalWithDefault<std::string>("active"))  // 可选字符串，默认值 "active"
+        .param("search", OptionalWithDefault<std::string>(""))  // 可选字符串，默认值 ""
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
     // 用户详情 API
     api.get("/api/users/:id")
-        .pathParam("id", Int())                // 路径参数，必需整数
+        .pathParam("id", Required<int>())                // 路径参数，必需整数
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
     // 创建用户 API
     api.post("/api/users")
-        .param("username", String())           // 必需字符串
-        .param("email", String())               // 必需字符串
-        .param("age", Int(18))                  // 可选整数，默认值 18
-        .param("active", Bool(true))            // 可选布尔，默认值 true
+        .param("username", Required<std::string>())           // 必需字符串
+        .param("email", Required<std::string>())               // 必需字符串
+        .param("age", OptionalWithDefault<int>(18))           // 可选整数，默认值 18
+        .param("active", OptionalWithDefault<bool>(true))      // 可选布尔，默认值 true
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(201).json("{\"code\":201,\"message\":\"Created\"}");
         });
     
     // 删除用户 API
     api.del("/api/users/:id")
-        .pathParam("id", Int())
+        .pathParam("id", Required<int>())
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Deleted\"}");
         });

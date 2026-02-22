@@ -2,7 +2,7 @@
  * @file declarative_dsl.h
  * @brief 声明式 DSL
  * 
- * 整体式 API 声明，清晰的默认值语法
+ * 整体式 API 声明，清晰的 Required 和 OptionalWithDefault 语法
  */
 
 #ifndef DECLARATIVE_DSL_H
@@ -24,25 +24,10 @@ struct Required {
 };
 
 template<typename T>
-struct Optional {
+struct OptionalWithDefault {
     T default_value;
-    Optional() : default_value(T()) {}
-    explicit Optional(T def) : default_value(def) {}
+    explicit OptionalWithDefault(T def) : default_value(def) {}
 };
-
-// ========== 便捷函数 ==========
-
-inline Required<int> Int() { return Required<int>(); }
-inline Required<int64_t> Int64() { return Required<int64_t>(); }
-inline Required<double> Double() { return Required<double>(); }
-inline Required<bool> Bool() { return Required<bool>(); }
-inline Required<std::string> String() { return Required<std::string>(); }
-
-inline Optional<int> Int(int default_value) { return Optional<int>(default_value); }
-inline Optional<int64_t> Int64(int64_t default_value) { return Optional<int64_t>(default_value); }
-inline Optional<double> Double(double default_value) { return Optional<double>(default_value); }
-inline Optional<bool> Bool(bool default_value) { return Optional<bool>(default_value); }
-inline Optional<std::string> String(std::string default_value) { return Optional<std::string>(default_value); }
 
 // ========== API 定义 ==========
 
@@ -72,9 +57,9 @@ struct ApiDefinition {
         return *this;
     }
     
-    // 添加可选参数
+    // 添加可选参数（带默认值）
     template<typename T>
-    ApiDefinition& param(const std::string& name, const Optional<T>& opt) {
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<T>& opt) {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
         def.validation.required = false;
         
