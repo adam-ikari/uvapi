@@ -174,3 +174,75 @@ api.get("/api/users/:id")
 | 长度 | `.length(min, max)` | 字符串 |
 | 正则 | `.pattern(regex)` | 字符串 |
 | 枚举 | `.oneOf({values})` | 所有类型 |
+
+## Handler 参数访问（类型自动推导）
+
+框架根据 DSL 中声明的参数类型，自动推导返回类型。所有参数访问返回 `optional<T>`。
+
+### 查询参数
+
+```cpp
+api.get("/api/users")
+    .param("page", Required<int>())
+    .param("limit", OptionalWithDefault<int>(10))
+    .param("status", OptionalWithDefault<std::string>("active"))
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        // 类型自动推导，无需手动指定 <int>
+        auto page = req.query("page");      // 返回 optional<int>
+        auto limit = req.query("limit");    // 返回 optional<int>
+        auto status = req.query("status");  // 返回 optional<string>
+        
+        // 使用 optional<T>
+        int page_num = page.value_or(1);
+        int limit_num = limit.value_or(10);
+        std::string status_filter = status.value_or("active");
+        
+        return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
+    });
+```
+
+### 路径参数
+
+```cpp
+api.get("/api/users/:id")
+    .pathParam("id", Required<int>())
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        // 类型自动推导
+        auto id = req.path("id");  // 返回 optional<int>
+        
+        if (!id.hasValue()) {
+            return HttpResponse(400).json("{\"code\":400,\"message\":\"Invalid user ID\"}");
+        }
+        
+        int user_id = id.value();
+        return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
+    });
+```
+
+### 类型推导规则
+
+| DSL 声明 | Handler 访问 | 返回类型 |
+|----------|--------------|----------|
+| `Required<int>()` | `req.query("page")` | `optional<int>` |
+| `OptionalWithDefault<int>(10)` | `req.query("limit")` | `optional<int>` |
+| `Required<std::string>()` | `req.query("username")` | `optional<string>` |
+| `OptionalWithDefault<std::string>("active")` | `req.query("status")` | `optional<string>` |
+| `Required<bool>()` | `req.query("active")` | `optional<bool>` |
+| `OptionalWithDefault<bool>(true)` | `req.query("enabled")` | `optional<bool>` |
+| `Required<double>()` | `req.query("price")` | `optional<double>` |
+| `OptionalWithDefault<double>(0.0)` | `req.query("rate")` | `optional<double>` |
+
+### 默认值自动应用
+
+框架会自动应用 DSL 中声明的默认值，`optional<T>` 在有默认值时一定有值。
+
+```cpp
+api.get("/api/users")
+    .param("limit", OptionalWithDefault<int>(10))  // 默认值 10
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        // 即使请求中不传 limit 参数，limit 也会有值
+        auto limit = req.query("limit");  // 返回 optional<int>，值一定是 10
+        int limit_num = limit.value();     // 安全使用，不需要 value_or
+        return HttpResponse(200).json("{\"code\":200}");
+    });
+```

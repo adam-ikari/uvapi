@@ -75,11 +75,11 @@ std::string buildUsersJson(const std::vector<User>& users) {
 
 // 1. 获取用户列表
 HttpResponse getUsers(const HttpRequest& req) {
-    // 使用类型自动推导的方法访问参数
-    auto page = req.getInt("page");
-    auto limit = req.getInt("limit");
-    auto status = req.getString("status");
-    auto search = req.getString("search");
+    // 使用类型模板访问参数
+    auto page = req.query<int>("page");
+    auto limit = req.query<int>("limit");
+    auto status = req.query<std::string>("status");
+    auto search = req.query<std::string>("search");
     
     // 框架已自动应用默认值
     int page_num = page.value_or(1);
@@ -134,7 +134,7 @@ HttpResponse getUsers(const HttpRequest& req) {
 
 // 2. 获取用户详情
 HttpResponse getUserDetail(const HttpRequest& req) {
-    auto id = req.getInt("id");
+    auto id = req.path<int>("id");
     
     if (!id.hasValue()) {
         return HttpResponse(400)
@@ -160,10 +160,10 @@ HttpResponse getUserDetail(const HttpRequest& req) {
 
 // 3. 创建用户
 HttpResponse createUser(const HttpRequest& req) {
-    auto username = req.getString("username");
-    auto email = req.getString("email");
-    auto age = req.getInt("age");
-    auto active = req.getBool("active");
+    auto username = req.query<std::string>("username");
+    auto email = req.query<std::string>("email");
+    auto age = req.query<int>("age");
+    auto active = req.query<bool>("active");
     
     // 验证必需参数
     if (!username.hasValue() || username.value().empty()) {
