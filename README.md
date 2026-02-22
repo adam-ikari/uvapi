@@ -7,6 +7,7 @@ A high-performance, type-safe RESTful framework built on top of UVHTTP, providin
 - **Type-Safe API**: Automatic serialization/deserialization with compile-time type checking
 - **High Performance**: Zero-copy optimization, event-driven architecture, efficient memory management
 - **Modern C++11**: Template metaprogramming, RAII, perfect forwarding
+- **Zero Exceptions**: No exception-based error handling, uses return codes and error objects for better predictability
 - **Easy to Use**: Simple, intuitive API for common HTTP operations
 - **Multi-Server Support**: Multiple servers can share the same libuv event loop
 - **Zero Global Variables**: Test-friendly, supports multiple instances

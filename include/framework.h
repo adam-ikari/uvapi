@@ -29,6 +29,26 @@ class ICustomTypeHandler;
 // ========== C++11 Optional 实现 ==========
 namespace uvapi {
 
+/**
+ * @brief UVAPI 框架核心命名空间
+ * 
+ * ## 设计哲学
+ * 
+ * 1. **零异常 (Zero Exceptions)**: 框架完全不使用异常机制
+ *    - 所有错误通过返回码、状态码或错误对象传递
+ *    - 使用 ValidationResult、HttpResponse 等类型表示错误
+ *    - 字符串转数字使用 strtol/strtod + errno 检查，而非 std::stoi/stod
+ *    - 确保可预测的行为和更好的性能
+ * 
+ * 2. **零全局变量**: 支持多实例，测试友好
+ * 
+ * 3. **RAII 优先**: 自动资源管理，避免内存泄漏
+ * 
+ * 4. **类型安全**: 编译时类型检查
+ * 
+ * 5. **高性能优先**: 零拷贝、事件驱动
+ */
+
 template<typename T>
 class optional {
 private:
@@ -1829,6 +1849,20 @@ int on_uvhttp_request(uvhttp_request_t* req, uvhttp_response_t* resp);
 
 class Server {
 public:
+    /**
+     * @brief 构造 Server 实例
+     * 
+     * ## 设计哲学
+     * 
+     * 1. **零异常 (Zero Exceptions)**: 不使用异常机制
+     *    - 所有公共方法返回 bool 表示成功/失败
+     *    - 通过 uvhttp_error_t 获取详细错误信息
+     *    - RAII 确保资源自动释放
+     * 
+     * 2. **事件循环注入**: 支持多实例共享循环
+     * 
+     * 3. **RAII 资源管理**: 自动清理，无需手动释放
+     */
     Server(uv_loop_t* loop);  // 事件循环注入
     ~Server();
     
@@ -2654,6 +2688,22 @@ public:
 using Middleware = std::function<HttpResponse(const HttpRequest&, RequestHandler)>;
 
 // RESTful API 应用类
+/**
+ * @brief RESTful API 应用类
+ * 
+ * ## 设计哲学
+ * 
+ * 1. **零异常 (Zero Exceptions)**: 不使用异常机制进行错误处理
+ *    - 所有错误通过返回码和错误对象传递
+ *    - 使用 ValidationResult、HTTP 状态码等表示错误
+ *    - 避免异常带来的性能开销和不确定性
+ * 
+ * 2. **类型安全**: 编译时类型检查，自动序列化/反序列化
+ * 
+ * 3. **高性能**: 零拷贝优化，事件驱动架构
+ * 
+ * 4. **可测试性**: 无全局变量，支持多实例
+ */
 class Api {
 public:
     Api(uv_loop_t* loop);  // 事件循环注入
