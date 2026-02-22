@@ -2,7 +2,7 @@
  * @file declarative_dsl.h
  * @brief 声明式 DSL
  * 
- * 整体式 API 声明
+ * 整体式 API 声明，使用明确的命名而非布尔值
  */
 
 #ifndef DECLARATIVE_DSL_H
@@ -10,55 +10,80 @@
 
 #include <string>
 #include <vector>
-#include <initializer_list>
 #include <functional>
 #include "framework.h"
 
 namespace uvapi {
 namespace declarative {
 
+// ========== 参数需求 ==========
+
+struct Required {
+    std::string type;
+    Required(std::string t) : type(t) {}
+};
+
+struct Optional {
+    std::string type;
+    std::string default_value;
+    Optional(std::string t, std::string def = "") : type(t), default_value(def) {}
+};
+
 // ========== API 定义 ==========
 
 struct ApiDefinition {
     std::string path;
     HttpMethod method;
-    std::string description;
     std::vector<restful::ParamDefinition> params;
     std::function<HttpResponse(const HttpRequest&)> handler;
     
     ApiDefinition(const std::string& p, HttpMethod m) 
         : path(p), method(m) {}
     
-    // 添加参数（属性风格）
-    ApiDefinition& param(const std::string& name, std::string type, bool required, std::string default_value = "") {
+    // 添加必需参数
+    ApiDefinition& param(const std::string& name, const Required& req) {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
-        def.validation.required = required;
-        def.default_value = default_value;
+        def.validation.required = true;
         
-        if (type == "int") def.data_type = 1;
-        else if (type == "string") def.data_type = 0;
-        else if (type == "bool") def.data_type = 5;
-        else if (type == "double") def.data_type = 3;
+        if (req.type == "int") def.data_type = 1;
+        else if (req.type == "string") def.data_type = 0;
+        else if (req.type == "bool") def.data_type = 5;
+        else if (req.type == "double") def.data_type = 3;
+        
+        params.push_back(def);
+        return *this;
+    }
+    
+    // 添加可选参数
+    ApiDefinition& param(const std::string& name, const Optional& opt) {
+        restful::ParamDefinition def(name, restful::ParamType::QUERY);
+        def.validation.required = false;
+        def.default_value = opt.default_value;
+        
+        if (opt.type == "int") def.data_type = 1;
+        else if (opt.type == "string") def.data_type = 0;
+        else if (opt.type == "bool") def.data_type = 5;
+        else if (opt.type == "double") def.data_type = 3;
         
         params.push_back(def);
         return *this;
     }
     
     // 添加路径参数
-    ApiDefinition& pathParam(const std::string& name, std::string type, bool required = true) {
+    ApiDefinition& pathParam(const std::string& name, const Required& req) {
         restful::ParamDefinition def(name, restful::ParamType::PATH);
-        def.validation.required = required;
+        def.validation.required = true;
         
-        if (type == "int") def.data_type = 1;
-        else if (type == "string") def.data_type = 0;
-        else if (type == "bool") def.data_type = 5;
-        else if (type == "double") def.data_type = 3;
+        if (req.type == "int") def.data_type = 1;
+        else if (req.type == "string") def.data_type = 0;
+        else if (req.type == "bool") def.data_type = 5;
+        else if (req.type == "double") def.data_type = 3;
         
         params.push_back(def);
         return *this;
     }
     
-    // 验证规则（添加到最后一个参数）
+    // 验证规则
     ApiDefinition& range(int min_val, int max_val) {
         if (!params.empty()) {
             params.back().validation.min_value = min_val;
@@ -102,6 +127,18 @@ struct ApiDefinition {
     }
 };
 
+// ========== 类型定义函数 ==========
+
+inline Required Int() { return Required("int"); }
+inline Required String() { return Required("string"); }
+inline Required Bool() { return Required("bool"); }
+inline Required Double() { return Required("double"); }
+
+inline Optional Int(int default_value) { return Optional("int", std::to_string(default_value)); }
+inline Optional String(std::string default_value = "") { return Optional("string", default_value); }
+inline Optional Bool(bool default_value) { return Optional("bool", default_value ? "true" : "false"); }
+inline Optional Double(double default_value) { return Optional("double", std::to_string(default_value)); }
+
 // ========== API 构建器 ==========
 
 class ApiBuilder {
@@ -111,40 +148,33 @@ private:
 public:
     ApiBuilder() {}
     
-    // 定义 GET API
     ApiDefinition& get(const std::string& path) {
         apis_.emplace_back(path, HttpMethod::GET);
         return apis_.back();
     }
     
-    // 定义 POST API
     ApiDefinition& post(const std::string& path) {
         apis_.emplace_back(path, HttpMethod::POST);
         return apis_.back();
     }
     
-    // 定义 PUT API
     ApiDefinition& put(const std::string& path) {
         apis_.emplace_back(path, HttpMethod::PUT);
         return apis_.back();
     }
     
-    // 定义 DELETE API
     ApiDefinition& del(const std::string& path) {
         apis_.emplace_back(path, HttpMethod::DELETE);
         return apis_.back();
     }
     
-    // 定义 PATCH API
     ApiDefinition& patch(const std::string& path) {
         apis_.emplace_back(path, HttpMethod::PATCH);
         return apis_.back();
     }
     
-    // 应用到 Api 实例
     void applyTo(Api& api) {
         for (const auto& api_def : apis_) {
-            // 注册路由和参数
             api.get(api_def.path, api_def.handler);
         }
     }

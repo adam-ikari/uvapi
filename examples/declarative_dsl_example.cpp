@@ -12,35 +12,38 @@ using namespace uvapi::declarative;
 int main() {
     std::cout << "=== 声明式 DSL 示例 ===" << std::endl;
     
-    // 整体式 API 声明
     ApiBuilder api;
     
+    // 用户列表 API
     api.get("/api/users")
-        .param("page", "int", false, "1").range(1, 1000)
-        .param("limit", "int", false, "10").range(1, 100)
-        .param("status", "string", false, "active").oneOf({"active", "inactive", "pending"})
-        .param("search", "string", false, "")
+        .param("page", Int(1)).range(1, 1000)
+        .param("limit", Int(10)).range(1, 100)
+        .param("status", String("active")).oneOf({"active", "inactive", "pending"})
+        .param("search", String(""))
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
+    // 用户详情 API
     api.get("/api/users/:id")
-        .pathParam("id", "int", true).range(1, INT_MAX)
+        .pathParam("id", Int()).range(1, INT_MAX)
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
+    // 创建用户 API
     api.post("/api/users")
-        .param("username", "string", true).length(3, 20)
-        .param("email", "string", true).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
-        .param("age", "int", false, "18").range(18, 120)
-        .param("active", "bool", false, "true")
+        .param("username", String()).length(3, 20)
+        .param("email", String()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+        .param("age", Int(18)).range(18, 120)
+        .param("active", Bool(true))
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(201).json("{\"code\":201,\"message\":\"Created\"}");
         });
     
+    // 删除用户 API
     api.del("/api/users/:id")
-        .pathParam("id", "int", true).range(1, INT_MAX)
+        .pathParam("id", Int()).range(1, INT_MAX)
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Deleted\"}");
         });
