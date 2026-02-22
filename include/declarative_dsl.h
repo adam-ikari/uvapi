@@ -2,7 +2,7 @@
  * @file declarative_dsl.h
  * @brief 声明式 DSL
  * 
- * 整体式 API 声明，使用明确的命名而非布尔值
+ * 整体式 API 声明，使用类型模板自动推导
  */
 
 #ifndef DECLARATIVE_DSL_H
@@ -16,17 +16,17 @@
 namespace uvapi {
 namespace declarative {
 
-// ========== 参数需求 ==========
+// ========== 参数需求（模板化）==========
 
+template<typename T>
 struct Required {
-    std::string type;
-    Required(std::string t) : type(t) {}
+    Required() {}
 };
 
+template<typename T>
 struct Optional {
-    std::string type;
-    std::string default_value;
-    Optional(std::string t, std::string def = "") : type(t), default_value(def) {}
+    T default_value;
+    Optional(T def) : default_value(def) {}
 };
 
 // ========== API 定义 ==========
@@ -40,44 +40,58 @@ struct ApiDefinition {
     ApiDefinition(const std::string& p, HttpMethod m) 
         : path(p), method(m) {}
     
-    // 添加必需参数
-    ApiDefinition& param(const std::string& name, const Required& req) {
+    // 添加必需参数（模板版本）
+    template<typename T>
+    ApiDefinition& param(const std::string& name, const Required<T>& req) {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
         def.validation.required = true;
         
-        if (req.type == "int") def.data_type = 1;
-        else if (req.type == "string") def.data_type = 0;
-        else if (req.type == "bool") def.data_type = 5;
-        else if (req.type == "double") def.data_type = 3;
+        if (std::is_same<T, int>::value) def.data_type = 1;
+        else if (std::is_same<T, int64_t>::value) def.data_type = 2;
+        else if (std::is_same<T, double>::value) def.data_type = 3;
+        else if (std::is_same<T, float>::value) def.data_type = 4;
+        else if (std::is_same<T, bool>::value) def.data_type = 5;
+        else if (std::is_same<T, std::string>::value) def.data_type = 0;
         
         params.push_back(def);
         return *this;
     }
     
-    // 添加可选参数
-    ApiDefinition& param(const std::string& name, const Optional& opt) {
+    // 添加可选参数（模板版本）
+    template<typename T>
+    ApiDefinition& param(const std::string& name, const Optional<T>& opt) {
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
         def.validation.required = false;
-        def.default_value = opt.default_value;
         
-        if (opt.type == "int") def.data_type = 1;
-        else if (opt.type == "string") def.data_type = 0;
-        else if (opt.type == "bool") def.data_type = 5;
-        else if (opt.type == "double") def.data_type = 3;
+        if (std::is_same<T, bool>::value) {
+            def.default_value = opt.default_value ? "true" : "false";
+        } else {
+            def.default_value = std::to_string(opt.default_value);
+        }
+        
+        if (std::is_same<T, int>::value) def.data_type = 1;
+        else if (std::is_same<T, int64_t>::value) def.data_type = 2;
+        else if (std::is_same<T, double>::value) def.data_type = 3;
+        else if (std::is_same<T, float>::value) def.data_type = 4;
+        else if (std::is_same<T, bool>::value) def.data_type = 5;
+        else if (std::is_same<T, std::string>::value) def.data_type = 0;
         
         params.push_back(def);
         return *this;
     }
     
-    // 添加路径参数
-    ApiDefinition& pathParam(const std::string& name, const Required& req) {
+    // 添加路径参数（模板版本）
+    template<typename T>
+    ApiDefinition& pathParam(const std::string& name, const Required<T>& req) {
         restful::ParamDefinition def(name, restful::ParamType::PATH);
         def.validation.required = true;
         
-        if (req.type == "int") def.data_type = 1;
-        else if (req.type == "string") def.data_type = 0;
-        else if (req.type == "bool") def.data_type = 5;
-        else if (req.type == "double") def.data_type = 3;
+        if (std::is_same<T, int>::value) def.data_type = 1;
+        else if (std::is_same<T, int64_t>::value) def.data_type = 2;
+        else if (std::is_same<T, double>::value) def.data_type = 3;
+        else if (std::is_same<T, float>::value) def.data_type = 4;
+        else if (std::is_same<T, bool>::value) def.data_type = 5;
+        else if (std::is_same<T, std::string>::value) def.data_type = 0;
         
         params.push_back(def);
         return *this;
@@ -126,18 +140,6 @@ struct ApiDefinition {
         return *this;
     }
 };
-
-// ========== 类型定义函数 ==========
-
-inline Required Int() { return Required("int"); }
-inline Required String() { return Required("string"); }
-inline Required Bool() { return Required("bool"); }
-inline Required Double() { return Required("double"); }
-
-inline Optional Int(int default_value) { return Optional("int", std::to_string(default_value)); }
-inline Optional String(std::string default_value = "") { return Optional("string", default_value); }
-inline Optional Bool(bool default_value) { return Optional("bool", default_value ? "true" : "false"); }
-inline Optional Double(double default_value) { return Optional("double", std::to_string(default_value)); }
 
 // ========== API 构建器 ==========
 

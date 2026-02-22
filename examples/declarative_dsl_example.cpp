@@ -16,34 +16,34 @@ int main() {
     
     // 用户列表 API
     api.get("/api/users")
-        .param("page", Int(1)).range(1, 1000)
-        .param("limit", Int(10)).range(1, 100)
-        .param("status", String("active")).oneOf({"active", "inactive", "pending"})
-        .param("search", String(""))
+        .param("page", Required<int>())  // 必需整数（无默认值）
+        .param("limit", Optional<int>(10))  // 可选整数，默认值 10
+        .param("status", Optional<std::string>("active"))
+        .param("search", Optional<std::string>(""))
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
     // 用户详情 API
     api.get("/api/users/:id")
-        .pathParam("id", Int()).range(1, INT_MAX)
+        .pathParam("id", Required<int>())
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
     // 创建用户 API
     api.post("/api/users")
-        .param("username", String()).length(3, 20)
-        .param("email", String()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
-        .param("age", Int(18)).range(18, 120)
-        .param("active", Bool(true))
+        .param("username", Required<std::string>())
+        .param("email", Required<std::string>())
+        .param("age", Optional<int>(18))
+        .param("active", Optional<bool>(true))
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(201).json("{\"code\":201,\"message\":\"Created\"}");
         });
     
     // 删除用户 API
     api.del("/api/users/:id")
-        .pathParam("id", Int()).range(1, INT_MAX)
+        .pathParam("id", Required<int>())
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Deleted\"}");
         });
