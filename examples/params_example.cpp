@@ -56,8 +56,8 @@ int main() {
     
     // DSL 中声明参数：
     // 1. 纯可选参数：param.optional()  // 不提供默认值
-    // 2. 带默认值：param.defaultValue(1)  // 隐含可选
-    // 3. 必需参数：param.required()  // 必须提供
+    // 2. 带默认值：param.optional().defaultValue(1)  // 可选 + 默认值
+    // 3. 必需参数：param.required()  // 必须提供，不能设置默认值
     
     // Handler 中直接使用 optional<T>，无需处理默认值
     auto page = test_req.query<int>("page");
@@ -77,8 +77,8 @@ int main() {
     
     std::cout << "\n参数声明类型：" << std::endl;
     std::cout << "- 纯可选：param.optional()  // 无默认值，返回 empty optional" << std::endl;
-    std::cout << "- 带默认值：param.defaultValue(1)  // 自动应用默认值" << std::endl;
-    std::cout << "- 必需参数：param.required()  // 必须提供，否则 400 错误" << std::endl;
+    std::cout << "- 带默认值：param.optional().defaultValue(1)  // 可选参数 + 默认值" << std::endl;
+    std::cout << "- 必需参数：param.required()  // 必须提供，不能设置默认值" << std::endl;
     
     // 示例 3: 自动类型推导 + 可选参数
     std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
