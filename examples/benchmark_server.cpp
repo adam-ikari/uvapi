@@ -9,44 +9,45 @@ using namespace restful;
 std::atomic<uint64_t> request_count{0};
 
 int main() {
-    std::cout << "UVAPI 性能测试服务器" << std::endl;
+    std::cout << "UVAPI 性能测试服务器 (轻量级优化版)" << std::endl;
     std::cout << "===================" << std::endl;
     
     uv_loop_t* loop = uv_default_loop();
     server::Server server(loop);
     
-    // 简单的文本响应
+    // 简单的文本响应（零拷贝优化）
     server.addRoute("/", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
         request_count++;
         HttpResponse resp(200);
-        resp.headers["Content-Type"] = "text/plain";
-        resp.body = "Hello, World!";
+        resp.header("Content-Type", "text/plain");
+        resp.setBody("Hello, World!");
         return resp;
     });
     
-    // JSON 响应
+    // JSON 响应（零拷贝优化）
     server.addRoute("/json", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
         request_count++;
         HttpResponse resp(200);
-        resp.headers["Content-Type"] = "application/json";
-        resp.body = "{\"status\":\"ok\",\"message\":\"Hello, World!\"}";
+        resp.header("Content-Type", "application/json");
+        resp.setBody("{\"status\":\"ok\",\"message\":\"Hello, World!\"}");
         return resp;
     });
     
-    // 健康检查
+    // 健康检查（零拷贝优化）
     server.addRoute("/health", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
         request_count++;
         HttpResponse resp(200);
-        resp.headers["Content-Type"] = "text/plain";
-        resp.body = "OK";
+        resp.header("Content-Type", "text/plain");
+        resp.setBody("OK");
         return resp;
     });
     
-    // 获取请求计数
+    // 请求统计（零拷贝优化）
     server.addRoute("/stats", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
         HttpResponse resp(200);
-        resp.headers["Content-Type"] = "application/json";
-        resp.body = "{\"total_requests\":" + std::to_string(request_count.load()) + "}";
+        resp.header("Content-Type", "application/json");
+        std::string body = "{\"total_requests\":" + std::to_string(request_count.load()) + "}";
+        resp.setBody(body);
         return resp;
     });
     
@@ -56,10 +57,12 @@ int main() {
     std::cout << "  /json    - JSON 响应" << std::endl;
     std::cout << "  /health  - 健康检查" << std::endl;
     std::cout << "  /stats   - 请求统计" << std::endl;
+    std::cout << "\n性能优化:" << std::endl;
+    std::cout << "  - mimalloc 内存分配器" << std::endl;
+    std::cout << "  - 零拷贝响应处理" << std::endl;
     std::cout << "\n性能测试命令:" << std::endl;
     std::cout << "  wrk -t1 -c10 -d30s http://localhost:8080/" << std::endl;
-    std::cout << "  wrk -t4 -c100 -d30s http://localhost:8080/" << std::endl;
-    std::cout << "  ab -n 10000 -c 100 http://localhost:8080/" << std::endl;
+    std::cout << "  wrk -t4 -c50 -d30s http://localhost:8080/" << std::endl;
     
     if (!server.listen("0.0.0.0", 8080)) {
         std::cerr << "启动服务器失败" << std::endl;

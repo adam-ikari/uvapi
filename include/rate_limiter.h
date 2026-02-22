@@ -155,7 +155,7 @@ public:
         auto cutoff = now - std::chrono::milliseconds(window_size_);
         requests_.erase(
             std::remove_if(requests_.begin(), requests_.end(),
-                [cutoff](const auto& time) { return time < cutoff; }),
+                [cutoff](const std::chrono::steady_clock::time_point& time) { return time < cutoff; }),
             requests_.end()
         );
         
@@ -268,11 +268,35 @@ private:
 public:
     RateLimiter() : enabled_(false) {}
     
+    // 禁止拷贝
+    RateLimiter(const RateLimiter&) = delete;
+    RateLimiter& operator=(const RateLimiter&) = delete;
+    
+    // 允许移动
+    RateLimiter(RateLimiter&& other) noexcept
+        : token_bucket_(std::move(other.token_bucket_))
+        , sliding_window_(std::move(other.sliding_window_))
+        , connection_limiter_(std::move(other.connection_limiter_))
+        , enabled_(other.enabled_) {
+        other.enabled_ = false;
+    }
+    
+    RateLimiter& operator=(RateLimiter&& other) noexcept {
+        if (this != &other) {
+            token_bucket_ = std::move(other.token_bucket_);
+            sliding_window_ = std::move(other.sliding_window_);
+            connection_limiter_ = std::move(other.connection_limiter_);
+            enabled_ = other.enabled_;
+            other.enabled_ = false;
+        }
+        return *this;
+    }
+    
     /**
      * @brief 启用令牌桶限流
      */
     void enableTokenBucket(uint64_t capacity, uint64_t refill_rate) {
-        token_bucket_ = std::make_unique<TokenBucket>(capacity, refill_rate);
+        token_bucket_.reset(new TokenBucket(capacity, refill_rate));
         enabled_ = true;
     }
     
@@ -280,7 +304,7 @@ public:
      * @brief 启用滑动窗口限流
      */
     void enableSlidingWindow(uint64_t window_size_ms, uint64_t max_requests) {
-        sliding_window_ = std::make_unique<SlidingWindow>(window_size_ms, max_requests);
+        sliding_window_.reset(new SlidingWindow(window_size_ms, max_requests));
         enabled_ = true;
     }
     
@@ -288,7 +312,7 @@ public:
      * @brief 启用连接数限制
      */
     void enableConnectionLimiter(uint64_t max_connections) {
-        connection_limiter_ = std::make_unique<ConnectionLimiter>(max_connections);
+        connection_limiter_.reset(new ConnectionLimiter(max_connections));
         enabled_ = true;
     }
     
