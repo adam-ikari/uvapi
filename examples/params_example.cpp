@@ -54,9 +54,10 @@ int main() {
     // 示例 3: Handler 中使用 optional<T>（推荐方式）
     std::cout << "\n=== 示例 3: Handler 中使用 optional<T> ===" << std::endl;
     
-    // DSL 中声明参数和默认值：
-    // ParamDefinition pageParam("page", ParamType::QUERY);
-    // pageParam.optional().defaultValue(1);
+    // DSL 中声明参数：
+    // 1. 纯可选参数：param.optional()  // 不提供默认值
+    // 2. 带默认值：param.defaultValue(1)  // 隐含可选
+    // 3. 必需参数：param.required()  // 必须提供
     
     // Handler 中直接使用 optional<T>，无需处理默认值
     auto page = test_req.query<int>("page");
@@ -73,6 +74,11 @@ int main() {
     std::cout << "2. Handler 中使用 req.query<int>(\"key\") 获取 optional<T>" << std::endl;
     std::cout << "3. 直接使用 .value()，框架已自动应用默认值" << std::endl;
     std::cout << "4. Handler 中无需手动处理默认值" << std::endl;
+    
+    std::cout << "\n参数声明类型：" << std::endl;
+    std::cout << "- 纯可选：param.optional()  // 无默认值，返回 empty optional" << std::endl;
+    std::cout << "- 带默认值：param.defaultValue(1)  // 自动应用默认值" << std::endl;
+    std::cout << "- 必需参数：param.required()  // 必须提供，否则 400 错误" << std::endl;
     
     // 示例 3: 自动类型推导 + 可选参数
     std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
