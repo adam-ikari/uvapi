@@ -246,3 +246,136 @@ api.get("/api/users")
         return HttpResponse(200).json("{\"code\":200}");
     });
 ```
+
+## Request Body Schema 验证
+
+### 定义 Schema（可复用）
+
+Schema 用于验证 Request Body，支持在多个 API 中复用（如创建和更新操作）。
+
+```cpp
+auto userSchema = Schema<User>()
+    .field("username", Required<std::string>()).length(3, 20)
+    .field("email", Required<std::string>()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+    .field("age", OptionalWithDefault<int>(18)).range(18, 120)
+    .field("active", OptionalWithDefault<bool>(true));
+```
+
+### 在 API 中使用 Schema
+
+```cpp
+// 创建用户 API
+api.post("/api/users")
+    .body(userSchema)
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        auto user = req.body<User>();  // 类型自动推导
+        return HttpResponse(201).json(user.toJson());
+    });
+
+// 更新用户 API（复用相同 Schema）
+api.put("/api/users/:id")
+    .pathParam("id", Required<int>())
+    .body(userSchema)  // 复用相同的 Schema
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        auto id = req.path<int>("id");
+        auto user = req.body<User>();
+        return HttpResponse(200).json(user.toJson());
+    });
+```
+
+### Schema 字段定义
+
+#### 必需字段
+
+```cpp
+.field("username", Required<std::string>())
+.field("email", Required<std::string>())
+```
+
+#### 可选字段（带默认值）
+
+```cpp
+.field("age", OptionalWithDefault<int>(18))
+.field("active", OptionalWithDefault<bool>(true))
+```
+
+### Schema 验证规则
+
+#### 范围验证
+
+```cpp
+.field("age", OptionalWithDefault<int>(18)).range(18, 120)
+```
+
+#### 长度验证
+
+```cpp
+.field("username", Required<std::string>()).length(3, 20)
+```
+
+#### 正则验证
+
+```cpp
+.field("email", Required<std::string>()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+```
+
+#### 枚举验证
+
+```cpp
+.field("status", OptionalWithDefault<std::string>("active")).oneOf({"active", "inactive", "pending"})
+```
+
+### Schema 核心特点
+
+| 特点 | 说明 |
+|------|------|
+| 可复用 | 在多个 API 中共享（创建、更新等） |
+| 类型自动推导 | `req.body<User>()` 自动返回正确的类型 |
+| 校验规则 | 支持 `.length()`、`.pattern()`、`.range()`、`.oneOf()` |
+| 与参数声明一致 | 使用相同的 `Required<T>` 和 `OptionalWithDefault<T>` |
+
+### 完整示例：用户 CRUD API
+
+```cpp
+// 定义 Schema（可复用）
+auto userSchema = Schema<User>()
+    .field("username", Required<std::string>()).length(3, 20)
+    .field("email", Required<std::string>()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+    .field("age", OptionalWithDefault<int>(18)).range(18, 120)
+    .field("active", OptionalWithDefault<bool>(true));
+
+// 创建用户
+api.post("/api/users")
+    .body(userSchema)
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        auto user = req.body<User>();
+        if (!user.hasValue()) {
+            return HttpResponse(400).json("{\"code\":400,\"message\":\"Invalid request body\"}");
+        }
+        return HttpResponse(201).json(user.value().toJson());
+    });
+
+// 更新用户
+api.put("/api/users/:id")
+    .pathParam("id", Required<int>())
+    .body(userSchema)  // 复用相同 Schema
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        auto id = req.path<int>("id");
+        auto user = req.body<User>();
+        return HttpResponse(200).json(user.value().toJson());
+    });
+```
+
+### 示例请求
+
+```bash
+# 创建用户
+curl -X POST http://localhost:8080/api/users \
+     -H "Content-Type: application/json" \
+     -d '{"username":"alice","email":"alice@example.com","age":25}'
+
+# 更新用户
+curl -X PUT http://localhost:8080/api/users/1 \
+     -H "Content-Type: application/json" \
+     -d '{"username":"alice","email":"alice@newdomain.com","age":26}'
+```
