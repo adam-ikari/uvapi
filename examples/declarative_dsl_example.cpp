@@ -14,45 +14,69 @@ int main() {
     
     ApiBuilder api;
     
-    // 用户列表 API
+    // 示例 1: 使用便捷方法定义用户列表 API
     api.get("/api/users")
-        .param("page", Required<int>())                    // 必需整数
-        .param("limit", OptionalWithDefault<int>(10))      // 可选整数，默认值 10
-        .param("status", OptionalWithDefault<std::string>("active"))  // 可选字符串，默认值 "active"
-        .param("search", OptionalWithDefault<std::string>(""))  // 可选字符串，默认值 ""
+        .pagination(PageParam(1, 20))  // 分页参数
+        .search(SearchParam(""))          // 搜索参数
+        .sort(SortParam("created_at", "desc", {"id", "name", "created_at"}, {"asc", "desc"}))  // 排序参数
+        .statusFilter({"active", "inactive", "pending"}, "active")  // 状态筛选
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
-    // 用户详情 API
+    // 示例 2: 使用便捷方法定义产品列表 API
+    api.get("/api/products")
+        .pagination(PageParam(1, 20))
+        .search(SearchParam(""))
+        .sort(SortParam("created_at", "desc", {"id", "name", "price", "created_at"}, {"asc", "desc"}))
+        .range("min_price", "max_price", RangeParam(0, 1000000))  // 价格范围
+        .statusFilter({"available", "out_of_stock", "discontinued"}, "available")
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
+        });
+    
+    // 示例 3: 用户详情 API（路径参数）
     api.get("/api/users/:id")
-        .pathParam("id", Required<int>())                // 路径参数，必需整数
+        .pathParam("id", Required<int>()).range(1, INT_MAX)
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
-    // 创建用户 API
+    // 示例 4: 创建用户 API
     api.post("/api/users")
-        .param("username", Required<std::string>())           // 必需字符串
-        .param("email", Required<std::string>())               // 必需字符串
-        .param("age", OptionalWithDefault<int>(18))           // 可选整数，默认值 18
-        .param("active", OptionalWithDefault<bool>(true))      // 可选布尔，默认值 true
+        .param("username", Required<std::string>()).length(3, 20)
+        .param("email", Required<std::string>()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+        .param("age", OptionalWithDefault<int>(18)).range(18, 120)
+        .param("active", OptionalWithDefault<bool>(true))
         .handle([](const HttpRequest& req) -> HttpResponse {
             return HttpResponse(201).json("{\"code\":201,\"message\":\"Created\"}");
         });
     
-    // 删除用户 API
-    api.del("/api/users/:id")
-        .pathParam("id", Required<int>())
+    // 示例 5: 订单列表 API（时间范围筛选）
+    api.get("/api/orders")
+        .pagination(PageParam(1, 20))
+        .dateRange("start_date", "end_date")  // 时间范围
+        .statusFilter({"pending", "paid", "shipped", "completed", "cancelled"}, "pending")
         .handle([](const HttpRequest& req) -> HttpResponse {
-            return HttpResponse(200).json("{\"code\":200,\"message\":\"Deleted\"}");
+            return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
+        });
+    
+    // 示例 6: 日志查询 API
+    api.get("/api/logs")
+        .pagination(PageParam(1, 100))
+        .dateRange("start_time", "end_time")
+        .search(SearchParam(""))
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     
     std::cout << "API 定义完成" << std::endl;
-    std::cout << "  GET /api/users - 用户列表" << std::endl;
+    std::cout << "  GET /api/users - 用户列表（分页、搜索、排序、状态筛选）" << std::endl;
+    std::cout << "  GET /api/products - 产品列表（分页、搜索、排序、价格范围）" << std::endl;
     std::cout << "  GET /api/users/:id - 用户详情" << std::endl;
     std::cout << "  POST /api/users - 创建用户" << std::endl;
-    std::cout << "  DELETE /api/users/:id - 删除用户" << std::endl;
+    std::cout << "  GET /api/orders - 订单列表（时间范围筛选）" << std::endl;
+    std::cout << "  GET /api/logs - 日志查询（时间范围）" << std::endl;
     
     std::cout << "\n声明式 DSL 示例完成！" << std::endl;
     

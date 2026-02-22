@@ -29,6 +29,45 @@ struct OptionalWithDefault {
     explicit OptionalWithDefault(T def) : default_value(def) {}
 };
 
+// ========== 常用参数预设 ==========
+
+struct PageParam {
+    int default_page;
+    int default_limit;
+    
+    PageParam(int page = 1, int limit = 10) 
+        : default_page(page), default_limit(limit) {}
+};
+
+struct SearchParam {
+    std::string default_value;
+    
+    SearchParam(const std::string& def = "") 
+        : default_value(def) {}
+};
+
+struct SortParam {
+    std::string default_field;
+    std::string default_order;
+    std::vector<std::string> valid_fields;
+    std::vector<std::string> valid_orders;
+    
+    SortParam(const std::string& field = "id", 
+              const std::string& order = "asc",
+              const std::vector<std::string>& fields = {"id", "created_at"},
+              const std::vector<std::string>& orders = {"asc", "desc"})
+        : default_field(field), default_order(order)
+        , valid_fields(fields), valid_orders(orders) {}
+};
+
+struct RangeParam {
+    int default_min;
+    int default_max;
+    
+    RangeParam(int min_val = 0, int max_val = 1000000) 
+        : default_min(min_val), default_max(max_val) {}
+};
+
 // ========== API 定义 ==========
 
 struct ApiDefinition {
@@ -137,6 +176,58 @@ struct ApiDefinition {
     // 设置处理器
     ApiDefinition& handle(std::function<HttpResponse(const HttpRequest&)> h) {
         handler = h;
+        return *this;
+    }
+    
+    // ========== 便捷方法：常用参数预设 ==========
+    
+    // 添加分页参数
+    ApiDefinition& pagination(const PageParam& page_param = PageParam()) {
+        param("page", OptionalWithDefault<int>(page_param.default_page))
+            .range(1, 1000000);
+        param("limit", OptionalWithDefault<int>(page_param.default_limit))
+            .range(1, 1000);
+        return *this;
+    }
+    
+    // 添加搜索参数
+    ApiDefinition& search(const SearchParam& search_param = SearchParam()) {
+        param("search", OptionalWithDefault<std::string>(search_param.default_value));
+        return *this;
+    }
+    
+    // 添加排序参数
+    ApiDefinition& sort(const SortParam& sort_param = SortParam()) {
+        param("sort", OptionalWithDefault<std::string>(sort_param.default_field))
+            .oneOf(sort_param.valid_fields);
+        param("order", OptionalWithDefault<std::string>(sort_param.default_order))
+            .oneOf(sort_param.valid_orders);
+        return *this;
+    }
+    
+    // 添加范围参数（价格、年龄等）
+    ApiDefinition& range(const std::string& min_name, const std::string& max_name, 
+                        const RangeParam& range_param = RangeParam()) {
+        param(min_name, OptionalWithDefault<int>(range_param.default_min))
+            .range(0, 1000000);
+        param(max_name, OptionalWithDefault<int>(range_param.default_max))
+            .range(0, 1000000);
+        return *this;
+    }
+    
+    // 添加时间范围参数
+    ApiDefinition& dateRange(const std::string& start_name = "start_date", 
+                               const std::string& end_name = "end_date") {
+        param(start_name, OptionalWithDefault<std::string>(""));
+        param(end_name, OptionalWithDefault<std::string>(""));
+        return *this;
+    }
+    
+    // 添加状态筛选参数
+    ApiDefinition& statusFilter(const std::vector<std::string>& valid_statuses,
+                                  const std::string& default_status = "") {
+        param("status", OptionalWithDefault<std::string>(default_status))
+            .oneOf(valid_statuses);
         return *this;
     }
 };
