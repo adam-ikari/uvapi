@@ -115,12 +115,6 @@ add_executable(schema_example
     src/multipart.cpp
 )
 
-add_executable(params_example
-    examples/params_example.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
-
 add_executable(benchmark_server
     examples/benchmark_server.cpp
     src/framework_uvhttp.cpp
@@ -157,20 +151,6 @@ target_link_libraries(crud_server
 )
 
 target_link_libraries(auth_server
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(params_example
     -Wl,--start-group
     uvhttp
     uv
@@ -244,7 +224,6 @@ target_link_libraries(upload_example
 target_compile_options(benchmark_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(crud_server PRIVATE -Wall -Wextra -O2)
 target_compile_options(auth_server PRIVATE -Wall -Wextra -O2)
-target_compile_options(params_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(uvhttp_middleware_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(dsl_example PRIVATE -Wall -Wextra -O2)
 target_compile_options(schema_example PRIVATE -Wall -Wextra -O2)

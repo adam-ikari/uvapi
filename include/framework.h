@@ -1874,11 +1874,11 @@ struct HttpRequest {
     // Request Body - 返回 optional<T>
     // 框架会根据 Schema 验证并解析 Body
     template<typename T>
-    optional<T> body() const {
+    optional<T> parseBody() const {
         if (body.empty()) {
             return optional<T>();
         }
-        T result = parseBody<T>();
+        T result = uvapi::parseBody<T>(body);
         return optional<T>(result);
     }
 
@@ -1955,8 +1955,8 @@ private:
             return optional<T>(static_cast<T>(result));
         }
 
-        // 默认返回字符串
-        return optional<T>(value);
+        // 默认返回空 optional（类型不匹配）
+        return optional<T>();
     }
     
     // Body 反序列化

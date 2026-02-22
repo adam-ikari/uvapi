@@ -52,7 +52,7 @@ auto userSchema = Schema<User>()
 
 // 创建用户
 HttpResponse createUser(const HttpRequest& req) {
-    auto user = req.body<User>();
+    auto user = req.parseBody<User>();
     
     // 验证必填字段
     if (!user.hasValue()) {
@@ -72,7 +72,7 @@ HttpResponse createUser(const HttpRequest& req) {
 // 更新用户
 HttpResponse updateUser(const HttpRequest& req) {
     auto id = req.path<int>("id");
-    auto user = req.body<User>();
+    auto user = req.parseBody<User>();
     
     if (!id.hasValue()) {
         return HttpResponse(400)
