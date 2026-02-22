@@ -239,7 +239,44 @@ public:
         param_.validation.has_pattern = true;
         return *this;
     }
-    
+
+    // 预定义模式验证
+    EnhancedParamBuilder& email() {
+        return pattern(ParamValidator::getEmailPattern());
+    }
+
+    EnhancedParamBuilder& url() {
+        return pattern(ParamValidator::getUrlPattern());
+    }
+
+    EnhancedParamBuilder& uuid() {
+        return pattern(ParamValidator::getUuidPattern());
+    }
+
+    EnhancedParamBuilder& date() {
+        return pattern(ParamValidator::getDatePattern());
+    }
+
+    EnhancedParamBuilder& datetime() {
+        return pattern(ParamValidator::getDatetimePattern());
+    }
+
+    EnhancedParamBuilder& ipv4() {
+        return pattern(ParamValidator::getIpV4Pattern());
+    }
+
+    EnhancedParamBuilder& alpha() {
+        return pattern(ParamValidator::getAlphaPattern());
+    }
+
+    EnhancedParamBuilder& alphanumeric() {
+        return pattern(ParamValidator::getAlphaNumericPattern());
+    }
+
+    EnhancedParamBuilder& alphanumericDash() {
+        return pattern(ParamValidator::getAlphaNumericDashPattern());
+    }
+
     // 枚举值验证
     EnhancedParamBuilder& oneOf(const std::vector<std::string>& values) {
         param_.validation.enum_values = values;
@@ -288,6 +325,52 @@ public:
 
 class ParamValidator {
 public:
+    // 预定义的正则表达式模式
+    static const std::string& getEmailPattern() {
+        static const std::string pattern = R"(^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$)";
+        return pattern;
+    }
+
+    static const std::string& getUrlPattern() {
+        static const std::string pattern = R"(^https?://[^\s/$.?#].[^\s]*$)";
+        return pattern;
+    }
+
+    static const std::string& getUuidPattern() {
+        static const std::string pattern = R"(^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$)";
+        return pattern;
+    }
+
+    static const std::string& getDatePattern() {
+        static const std::string pattern = R"(^\d{4}-\d{2}-\d{2}$)";
+        return pattern;
+    }
+
+    static const std::string& getDatetimePattern() {
+        static const std::string pattern = R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$)";
+        return pattern;
+    }
+
+    static const std::string& getIpV4Pattern() {
+        static const std::string pattern = R"(^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)";
+        return pattern;
+    }
+
+    static const std::string& getAlphaPattern() {
+        static const std::string pattern = R"(^[a-zA-Z]+$)";
+        return pattern;
+    }
+
+    static const std::string& getAlphaNumericPattern() {
+        static const std::string pattern = R"(^[a-zA-Z0-9]+$)";
+        return pattern;
+    }
+
+    static const std::string& getAlphaNumericDashPattern() {
+        static const std::string pattern = R"(^[a-zA-Z0-9\-_]+$)";
+        return pattern;
+    }
+
     // 验证参数值
     static std::string validate(const restful::ParamDefinition& param, const std::string& value) {
         // 检查必填参数
@@ -329,12 +412,15 @@ public:
         }
         
         // 浮点数范围验证
-        if (param.validation.has_min && param.validation.has_max) {
+        if (param.validation.has_min || param.validation.has_max) {
             try {
                 double val = std::stod(value);
-                if (val < param.validation.min_double || val > param.validation.max_double) {
-                    return "Parameter '" + param.name + "' must be between " + 
-                           std::to_string(param.validation.min_double) + " and " + 
+                if (param.validation.has_min && val < param.validation.min_double) {
+                    return "Parameter '" + param.name + "' must be at least " +
+                           std::to_string(param.validation.min_double);
+                }
+                if (param.validation.has_max && val > param.validation.max_double) {
+                    return "Parameter '" + param.name + "' must be at most " +
                            std::to_string(param.validation.max_double);
                 }
             } catch (const std::exception&) {

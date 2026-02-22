@@ -271,6 +271,38 @@ inline Middleware cors(const std::string& origin = "*") {
 }
 
 // 认证中间件（基于 Bearer Token）
+inline Middleware auth(restful::Api& api) {
+    return [&api](const Request& req, std::function<Response()> next) -> Response {
+        std::string auth_header;
+        auto it = req.headers.find("Authorization");
+        if (it != req.headers.end()) {
+            auth_header = it->second;
+        }
+
+        if (auth_header.empty() || auth_header.substr(0, 7) != "Bearer ") {
+            return unauthorized("Missing or invalid authorization token");
+        }
+
+        // 提取 token
+        std::string token = auth_header.substr(7);
+
+        // 验证 token
+        int64_t user_id = 0;
+        std::string username;
+        std::string role;
+        if (!api.validateToken(token, user_id, username, role)) {
+            return unauthorized("Invalid or expired token");
+        }
+
+        // 将用户信息存储在请求中（通过 path_params 临时传递）
+        // 注意：这是一个简化的实现，实际应用中应该使用专门的上下文对象
+        // const_cast<HttpRequest&>(req).user_id = user_id;
+
+        return next();
+    };
+}
+
+// 无参数的 auth() 保留用于向后兼容（不进行实际验证）
 inline Middleware auth() {
     return [](const Request& req, std::function<Response()> next) -> Response {
         std::string auth_header;
@@ -278,14 +310,13 @@ inline Middleware auth() {
         if (it != req.headers.end()) {
             auth_header = it->second;
         }
-        
+
         if (auth_header.empty() || auth_header.substr(0, 7) != "Bearer ") {
             return unauthorized("Missing or invalid authorization token");
         }
-        
-        // TODO: 验证 token
-        // 需要访问 Api 实例的 token 验证功能
-        
+
+        // 注意：此版本不进行实际 token 验证，仅检查格式
+        // 建议使用 auth(Api& api) 版本进行完整验证
         return next();
     };
 }

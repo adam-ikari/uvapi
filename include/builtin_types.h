@@ -242,6 +242,7 @@ class TypeHandlerRegistry {
 private:
     static std::map<FieldType, std::unique_ptr<ICustomTypeHandler>> handlers_;
     static std::once_flag init_flag_;
+    static std::mutex handlers_mutex_;  // 保护并发访问
     
     static void doInit() {
         handlers_[FieldType::EMAIL].reset(new EmailTypeHandler());
@@ -259,6 +260,9 @@ public:
     static ICustomTypeHandler* get(FieldType type) {
         init();
         
+        // 使用互斥锁保护读取操作
+        std::lock_guard<std::mutex> lock(handlers_mutex_);
+        
         auto it = handlers_.find(type);
         if (it != handlers_.end()) {
             return it->second.get();
@@ -268,6 +272,10 @@ public:
     
     static void registerCustom(FieldType type, std::unique_ptr<ICustomTypeHandler> handler) {
         init();
+        
+        // 使用互斥锁保护写入操作
+        std::lock_guard<std::mutex> lock(handlers_mutex_);
+        
         handlers_[type] = std::move(handler);
     }
 };
@@ -275,6 +283,7 @@ public:
 // 静态成员初始化
 std::map<FieldType, std::unique_ptr<ICustomTypeHandler>> TypeHandlerRegistry::handlers_;
 std::once_flag TypeHandlerRegistry::init_flag_;
+std::mutex TypeHandlerRegistry::handlers_mutex_;  // 初始化互斥锁
 
 } // namespace uvapi
 

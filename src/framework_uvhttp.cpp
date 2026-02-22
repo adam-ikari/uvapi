@@ -104,14 +104,11 @@ int on_uvhttp_request(uvhttp_request_t* req, uvhttp_response_t* resp) {
     // 获取查询参数
     const char* query_string = uvhttp_request_get_query_string(req);
     if (query_string && strlen(query_string) > 0) {
-        // 简单解析查询参数
-        char* query_copy = strdup(query_string);
-        if (!query_copy) {
-            uvhttp_response_set_status(resp, 500);
-            uvhttp_response_send(resp);
-            return -1;
-        }
-        char* token = strtok(query_copy, "&");
+        // 简单解析查询参数 - 使用 std::string 和 std::vector 替代 strdup
+        size_t query_len = strlen(query_string);
+        std::vector<char> query_copy(query_string, query_string + query_len + 1); // +1 for null terminator
+        
+        char* token = strtok(query_copy.data(), "&");
         while (token != nullptr) {
             char* equals = strchr(token, '=');
             if (equals) {
@@ -120,7 +117,6 @@ int on_uvhttp_request(uvhttp_request_t* req, uvhttp_response_t* resp) {
             }
             token = strtok(nullptr, "&");
         }
-        free(query_copy);
     }
     
     // 获取请求体
