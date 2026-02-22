@@ -177,6 +177,11 @@ public:
         return initialized_;
     }
     
+    // 别名方法，符合项目命名规范（camelCase）
+    bool hasValue() const {
+        return initialized_;
+    }
+    
     // 获取值（异常版本）
     T& value() {
         if (!initialized_) {
@@ -272,6 +277,10 @@ public:
     optional(bool has_value) : initialized_(has_value) {}
     
     bool has_value() const { return initialized_; }
+    
+    // 别名方法，符合项目命名规范（camelCase）
+    bool hasValue() const { return initialized_; }
+    
     void reset() { initialized_ = false; }
     explicit operator bool() const { return initialized_; }
     
