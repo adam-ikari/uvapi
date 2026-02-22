@@ -1149,22 +1149,30 @@ void RouteBuilder::register_() {
         std::vector<ParamDefinition> path_params = param_group_.getParams();
         std::vector<ParamDefinition> query_params = param_group_.getParams();
         
-        // 创建包装的处理器，执行参数验证
+        // 创建包装的处理器，执行参数验证并应用默认值
         RequestHandler wrapped_handler = [handler, path_params, query_params](const HttpRequest& req) -> HttpResponse {
-            // 验证路径参数
+            // 创建可修改的请求副本
+            HttpRequest modified_req = req;
+            
+            // 验证路径参数并应用默认值
             for (const auto& param : path_params) {
-                if (param.validation.required) {
-                    auto it = req.path_params.find(param.name);
-                    if (it == req.path_params.end() || it->second.empty()) {
+                auto it = modified_req.path_params.find(param.name);
+                
+                // 如果参数不存在且不是必填的，应用默认值
+                if (it == modified_req.path_params.end() || it->second.empty()) {
+                    if (param.validation.required) {
                         return HttpResponse(400).json(
                             "{\"code\":\"400\",\"message\":\"Path parameter '" + param.name + "' is required\"}"
                         );
+                    } else if (!param.default_value.empty()) {
+                        // 应用默认值
+                        modified_req.path_params[param.name] = param.default_value;
                     }
                 }
                 
                 // 执行验证
-                auto it = req.path_params.find(param.name);
-                if (it != req.path_params.end()) {
+                it = modified_req.path_params.find(param.name);
+                if (it != modified_req.path_params.end()) {
                     const std::string& value = it->second;
                     
                     // 整数范围验证
@@ -1198,20 +1206,25 @@ void RouteBuilder::register_() {
                 }
             }
             
-            // 验证查询参数
+            // 验证查询参数并应用默认值
             for (const auto& param : query_params) {
-                if (param.validation.required) {
-                    auto it = req.query_params.find(param.name);
-                    if (it == req.query_params.end() || it->second.empty()) {
+                auto it = modified_req.query_params.find(param.name);
+                
+                // 如果参数不存在且不是必填的，应用默认值
+                if (it == modified_req.query_params.end() || it->second.empty()) {
+                    if (param.validation.required) {
                         return HttpResponse(400).json(
                             "{\"code\":\"400\",\"message\":\"Query parameter '" + param.name + "' is required\"}"
                         );
+                    } else if (!param.default_value.empty()) {
+                        // 应用默认值
+                        modified_req.query_params[param.name] = param.default_value;
                     }
                 }
                 
                 // 执行验证
-                auto it = req.query_params.find(param.name);
-                if (it != req.query_params.end()) {
+                it = modified_req.query_params.find(param.name);
+                if (it != modified_req.query_params.end()) {
                     const std::string& value = it->second;
                     
                     // 整数范围验证
@@ -1283,8 +1296,8 @@ void RouteBuilder::register_() {
                 }
             }
             
-            // 调用原始处理器
-            return handler(req);
+            // 调用原始处理器（传入修改后的请求）
+            return handler(modified_req);
         };
         
         // 注册路由

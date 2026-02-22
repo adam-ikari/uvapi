@@ -77,6 +77,51 @@ int main() {
     std::string order = test_req.queryOpt<std::string>("order").value_or("asc");
     std::cout << "order: " << order << std::endl;
     
+    // 示例 4: DSL 中声明默认值，handler 中无需再次处理
+    std::cout << "\n=== 示例 4: DSL 默认值自动应用 ===" << std::endl;
+    
+    // 模拟 DSL 中声明的参数（包含默认值）
+    ParamDefinition pageParam("page", ParamType::QUERY);
+    pageParam.validation.required = false;
+    pageParam.default_value = "1";  // DSL 中声明默认值
+    
+    ParamDefinition limitParam("limit", ParamType::QUERY);
+    limitParam.validation.required = false;
+    limitParam.default_value = "10";  // DSL 中声明默认值
+    
+    // 模拟框架自动应用默认值后的请求
+    HttpRequest req_with_defaults = test_req;
+    
+    // 框架会自动为不存在的可选参数应用默认值
+    if (req_with_defaults.query_params.find("page") == req_with_defaults.query_params.end() && !pageParam.default_value.empty()) {
+        req_with_defaults.query_params["page"] = pageParam.default_value;
+    }
+    if (req_with_defaults.query_params.find("limit") == req_with_defaults.query_params.end() && !limitParam.default_value.empty()) {
+        req_with_defaults.query_params["limit"] = limitParam.default_value;
+    }
+    
+    // Handler 中直接访问参数，无需处理默认值
+    int page_auto = req_with_defaults.query<int>("page");
+    int limit_auto = req_with_defaults.query<int>("limit");
+    
+    std::cout << "page (auto-applied default): " << page_auto << std::endl;
+    std::cout << "limit (auto-applied default): " << limit_auto << std::endl;
+    
+    // 示例 5: 必需参数和可选参数的区别
+    std::cout << "\n=== 示例 5: 必需参数 vs 可选参数 ===" << std::endl;
+    
+    // 必需参数：如果未提供，框架会返回 400 错误
+    ParamDefinition userIdParam("user_id", ParamType::PATH);
+    userIdParam.validation.required = true;
+    
+    // 可选参数：如果未提供，框架会自动应用默认值
+    ParamDefinition statusParam("status", ParamType::QUERY);
+    statusParam.validation.required = false;
+    statusParam.default_value = "active";
+    
+    std::cout << "user_id (required): must be provided, otherwise 400 error" << std::endl;
+    std::cout << "status (optional with default): auto-applied to 'active' if not provided" << std::endl;
+    
     // 示例 4: 路径参数的可选参数 API
     std::cout << "\n=== 示例 4: 路径参数可选 API ===" << std::endl;
     
