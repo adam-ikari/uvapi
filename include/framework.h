@@ -2530,9 +2530,10 @@ struct ParamDefinition {
     ParamType type;
     std::string default_value;
     ParamValidation validation;
+    int data_type;  // 0=string, 1=int, 2=int64, 3=double, 4=float, 5=bool
     
     ParamDefinition(const std::string& n, ParamType t) 
-        : name(n), type(t) {}
+        : name(n), type(t), data_type(0) {}  // 默认为 string
 };
 
 // 参数构建器
@@ -2561,6 +2562,38 @@ public:
     
     ParamBuilder& defaultValue(bool value) {
         param_.default_value = value ? "true" : "false";
+        param_.data_type = 5;  // bool
+        return *this;
+    }
+    
+    // 类型设置
+    ParamBuilder& asString() {
+        param_.data_type = 0;  // string
+        return *this;
+    }
+    
+    ParamBuilder& asInt() {
+        param_.data_type = 1;  // int
+        return *this;
+    }
+    
+    ParamBuilder& asInt64() {
+        param_.data_type = 2;  // int64
+        return *this;
+    }
+    
+    ParamBuilder& asDouble() {
+        param_.data_type = 3;  // double
+        return *this;
+    }
+    
+    ParamBuilder& asFloat() {
+        param_.data_type = 4;  // float
+        return *this;
+    }
+    
+    ParamBuilder& asBool() {
+        param_.data_type = 5;  // bool
         return *this;
     }
     
