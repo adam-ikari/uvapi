@@ -1845,7 +1845,8 @@ struct HttpRequest {
     // 路径参数（智能推断类型，Zero Exceptions）
     // 使用 strtol/strtod + errno 替代 std::stoll/std::stod，避免异常抛出
     
-    // 路径参数 - 可选参数（返回 optional<T>）
+    // 路径参数 - 返回 optional<T>
+    // 框架会自动应用 DSL 中声明的默认值
     template<typename T>
     optional<T> path(const std::string& key) const {
         std::map<std::string, std::string>::const_iterator it = path_params.find(key);
@@ -1857,14 +1858,8 @@ struct HttpRequest {
         return parseValue<T>(value);
     }
 
-    // 路径参数 - 带默认值（返回 T，自动类型推导）
-    template<typename T>
-    T path(const std::string& key, const T& default_value) const {
-        optional<T> result = path<T>(key);
-        return result.hasValue() ? result.value() : default_value;
-    }
-
-    // 查询参数 - 可选参数（返回 optional<T>）
+    // 查询参数 - 返回 optional<T>
+    // 框架会自动应用 DSL 中声明的默认值
     template<typename T>
     optional<T> query(const std::string& key) const {
         std::map<std::string, std::string>::const_iterator it = query_params.find(key);
@@ -1874,13 +1869,6 @@ struct HttpRequest {
 
         const std::string& value = it->second;
         return parseValue<T>(value);
-    }
-
-    // 查询参数 - 带默认值（返回 T，自动类型推导）
-    template<typename T>
-    T query(const std::string& key, const T& default_value) const {
-        optional<T> result = query<T>(key);
-        return result.hasValue() ? result.value() : default_value;
     }
 
 private:

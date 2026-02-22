@@ -51,24 +51,28 @@ int main() {
         std::cout << "not provided" << std::endl;
     }
     
-    // 示例 3: 自动类型推导（更简洁）
-    std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
+    // 示例 3: Handler 中使用 optional<T>（推荐方式）
+    std::cout << "\n=== 示例 3: Handler 中使用 optional<T> ===" << std::endl;
     
-    // 通过默认值自动推导类型
-    int page_auto = test_req.query("page", 1);  // 自动推导为 int
-    int limit_auto = test_req.query("limit", 10);  // 自动推导为 int
-    std::string sort_auto = test_req.query("sort", std::string("id"));  // 自动推导为 std::string
-    bool active_auto = test_req.query("active", false);  // 自动推导为 bool
+    // DSL 中声明参数和默认值：
+    // ParamDefinition pageParam("page", ParamType::QUERY);
+    // pageParam.optional().defaultValue(1);
     
-    std::cout << "page (auto-deduced): " << page_auto << std::endl;
-    std::cout << "limit (auto-deduced): " << limit_auto << std::endl;
-    std::cout << "sort (auto-deduced): " << sort_auto << std::endl;
-    std::cout << "active (auto-deduced): " << (active_auto ? "true" : "false") << std::endl;
+    // Handler 中直接使用 optional<T>，无需处理默认值
+    auto page = test_req.query<int>("page");
+    auto limit = test_req.query<int>("limit");
+    auto sort = test_req.query<std::string>("sort");
     
-    // 对比：旧方式 vs 新方式
-    std::cout << "\n对比：" << std::endl;
-    std::cout << "可选参数: req.query<int>(\"page\")  // 返回 optional<int>" << std::endl;
-    std::cout << "带默认值: req.query(\"page\", 1)  // 返回 int，类型自动推导" << std::endl;
+    // 框架已经自动应用了 DSL 中声明的默认值
+    std::cout << "page: " << page.value() << " (auto-applied default if not provided)" << std::endl;
+    std::cout << "limit: " << limit.value() << " (auto-applied default if not provided)" << std::endl;
+    std::cout << "sort: " << sort.value() << " (auto-applied default if not provided)" << std::endl;
+    
+    std::cout << "\n推荐做法：" << std::endl;
+    std::cout << "1. 在 DSL 中声明参数和默认值" << std::endl;
+    std::cout << "2. Handler 中使用 req.query<int>(\"key\") 获取 optional<T>" << std::endl;
+    std::cout << "3. 直接使用 .value()，框架已自动应用默认值" << std::endl;
+    std::cout << "4. Handler 中无需手动处理默认值" << std::endl;
     
     // 示例 3: 自动类型推导 + 可选参数
     std::cout << "\n=== 示例 3: 自动类型推导 ===" << std::endl;
@@ -147,14 +151,18 @@ int main() {
         std::cout << "id: not provided" << std::endl;
     }
     
-    std::string category = test_req.path("category", "default");
-    std::cout << "category: " << category << std::endl;
+    auto category = test_req.path<std::string>("category");
+    if (category.hasValue()) {
+        std::cout << "category: " << category.value() << std::endl;
+    } else {
+        std::cout << "category: not provided (DSL default would be applied)" << std::endl;
+    }
     
     auto missing_path = test_req.path<std::string>("missing");
     if (missing_path.hasValue()) {
         std::cout << "missing_path: " << missing_path.value() << std::endl;
     } else {
-        std::cout << "missing_path: not provided" << std::endl;
+        std::cout << "missing_path: not provided (DSL default would be applied)" << std::endl;
     }
     
     // 示例 5: 参数验证
