@@ -13,11 +13,205 @@
 #include <cstring>
 #include <random>
 #include <climits>
+#include <cerrno>
+#include <type_traits>
 
 namespace uvapi {
 
-// ========== HttpRequest 模板特化实现 ==========
-// 注意：模板方法已经在头文件中内联实现，不需要在 .cpp 文件中特化
+// ========== 安全的类型转换辅助函数（Zero Exceptions）==========
+// 使用 strtol/strtod + errno 替代 std::stoi/stod，避免异常抛出
+
+namespace detail {
+
+// 字符串转整数（使用 strtol + errno）
+template<typename T>
+inline typename std::enable_if<std::is_integral<T>::value, T>::type
+safeStrToInt(const std::string& str, T default_value) {
+    if (str.empty()) {
+        return default_value;
+    }
+
+    errno = 0;
+    char* endptr = nullptr;
+    long long result = strtoll(str.c_str(), &endptr, 10);
+
+    // 检查转换是否失败
+    if (endptr == str.c_str() || *endptr != '\0') {
+        return default_value;  // 不是有效的数字
+    }
+
+    // 检查是否溢出
+    if (errno == ERANGE) {
+        return default_value;
+    }
+
+    // 检查是否超出目标类型的范围
+    if (result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+        result > static_cast<long long>(std::numeric_limits<T>::max())) {
+        return default_value;
+    }
+
+    return static_cast<T>(result);
+}
+
+// 字符串转浮点数（使用 strtod + errno）
+template<typename T>
+inline typename std::enable_if<std::is_floating_point<T>::value, T>::type
+safeStrToDouble(const std::string& str, T default_value) {
+    if (str.empty()) {
+        return default_value;
+    }
+
+    errno = 0;
+    char* endptr = nullptr;
+    double result = strtod(str.c_str(), &endptr);
+
+    // 检查转换是否失败
+    if (endptr == str.c_str() || *endptr != '\0') {
+        return default_value;  // 不是有效的数字
+    }
+
+    // 检查是否溢出
+    if (errno == ERANGE) {
+        return default_value;
+    }
+
+    return static_cast<T>(result);
+}
+
+// 字符串转布尔值
+inline bool safeStrToBool(const std::string& str, bool default_value) {
+    if (str.empty()) {
+        return default_value;
+    }
+    return (str == "true" || str == "1" || str == "yes" || str == "on");
+}
+
+// 字符串转字符串（直接返回）
+inline std::string safeStrToString(const std::string& str, const std::string& default_value) {
+    return str.empty() ? default_value : str;
+}
+
+} // namespace detail
+
+// ========== HttpRequest 模板方法实现 ==========
+
+// 实现 HttpRequest::queryOpt<T>() 模板函数（返回 optional<T>）
+template<>
+optional<std::string> uvapi::HttpRequest::queryOpt<std::string>(const std::string& key) const {
+    auto it = query_params.find(key);
+    if (it == query_params.end()) {
+        return optional<std::string>();
+    }
+    return parseValue<std::string>(it->second);
+}
+
+template<>
+optional<int> uvapi::HttpRequest::queryOpt<int>(const std::string& key) const {
+    auto it = query_params.find(key);
+    if (it == query_params.end()) {
+        return optional<int>();
+    }
+    return parseValue<int>(it->second);
+}
+
+template<>
+optional<int64_t> uvapi::HttpRequest::queryOpt<int64_t>(const std::string& key) const {
+    auto it = query_params.find(key);
+    if (it == query_params.end()) {
+        return optional<int64_t>();
+    }
+    return parseValue<int64_t>(it->second);
+}
+
+template<>
+optional<double> uvapi::HttpRequest::queryOpt<double>(const std::string& key) const {
+    auto it = query_params.find(key);
+    if (it == query_params.end()) {
+        return optional<double>();
+    }
+    return parseValue<double>(it->second);
+}
+
+template<>
+optional<float> uvapi::HttpRequest::queryOpt<float>(const std::string& key) const {
+    auto it = query_params.find(key);
+    if (it == query_params.end()) {
+        return optional<float>();
+    }
+    return parseValue<float>(it->second);
+}
+
+template<>
+optional<bool> uvapi::HttpRequest::queryOpt<bool>(const std::string& key) const {
+    auto it = query_params.find(key);
+    if (it == query_params.end()) {
+        return optional<bool>();
+    }
+    return parseValue<bool>(it->second);
+}
+
+// 实现 HttpRequest::query<T>() 模板函数（带默认值）
+template<>
+std::string uvapi::HttpRequest::query<std::string>(const std::string& key, const std::string& default_value) const {
+    return queryOpt<std::string>(key).value_or(default_value);
+}
+
+template<>
+int uvapi::HttpRequest::query<int>(const std::string& key, const int& default_value) const {
+    return queryOpt<int>(key).value_or(default_value);
+}
+
+template<>
+int64_t uvapi::HttpRequest::query<int64_t>(const std::string& key, const int64_t& default_value) const {
+    return queryOpt<int64_t>(key).value_or(default_value);
+}
+
+template<>
+double uvapi::HttpRequest::query<double>(const std::string& key, const double& default_value) const {
+    return queryOpt<double>(key).value_or(default_value);
+}
+
+template<>
+float uvapi::HttpRequest::query<float>(const std::string& key, const float& default_value) const {
+    return queryOpt<float>(key).value_or(default_value);
+}
+
+template<>
+bool uvapi::HttpRequest::query<bool>(const std::string& key, const bool& default_value) const {
+    return queryOpt<bool>(key).value_or(default_value);
+}
+
+// 实现 HttpRequest::query<T>() 模板函数（不带默认值）
+template<>
+std::string uvapi::HttpRequest::query<std::string>(const std::string& key) const {
+    return query<std::string>(key, "");
+}
+
+template<>
+int uvapi::HttpRequest::query<int>(const std::string& key) const {
+    return query<int>(key, 0);
+}
+
+template<>
+int64_t uvapi::HttpRequest::query<int64_t>(const std::string& key) const {
+    return query<int64_t>(key, 0);
+}
+
+template<>
+double uvapi::HttpRequest::query<double>(const std::string& key) const {
+    return query<double>(key, 0.0);
+}
+
+template<>
+float uvapi::HttpRequest::query<float>(const std::string& key) const {
+    return query<float>(key, 0.0f);
+}
+
+template<>
+bool uvapi::HttpRequest::query<bool>(const std::string& key) const {
+    return query<bool>(key, false);
+}
 
 // ========== JSON 辅助函数（使用新的序列化 API）==========
 

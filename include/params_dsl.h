@@ -29,6 +29,11 @@
 
 #include <string>
 #include <functional>
+#include <cstdlib>
+#include <cerrno>
+#include <climits>
+#include <type_traits>
+#include <limits>
 #include <vector>
 #include <map>
 #include <stdexcept>
@@ -394,37 +399,55 @@ public:
                    std::to_string(param.validation.max_length) + " characters";
         }
         
-        // 整数范围验证
+        // 整数范围验证（使用 strtol + errno，Zero Exceptions）
         if (param.validation.has_min || param.validation.has_max) {
-            try {
-                long val = std::stol(value);
-                if (param.validation.has_min && val < param.validation.min_value) {
-                    return "Parameter '" + param.name + "' must be at least " + 
-                           std::to_string(param.validation.min_value);
-                }
-                if (param.validation.has_max && val > param.validation.max_value) {
-                    return "Parameter '" + param.name + "' must be at most " + 
-                           std::to_string(param.validation.max_value);
-                }
-            } catch (const std::exception&) {
+            errno = 0;
+            char* endptr = nullptr;
+            long val = strtol(value.c_str(), &endptr, 10);
+
+            // 检查转换是否失败
+            if (endptr == value.c_str() || *endptr != '\0') {
                 return "Parameter '" + param.name + "' must be a valid integer";
             }
+
+            // 检查是否溢出
+            if (errno == ERANGE) {
+                return "Parameter '" + param.name + "' must be a valid integer";
+            }
+
+            if (param.validation.has_min && val < param.validation.min_value) {
+                return "Parameter '" + param.name + "' must be at least " +
+                       std::to_string(param.validation.min_value);
+            }
+            if (param.validation.has_max && val > param.validation.max_value) {
+                return "Parameter '" + param.name + "' must be at most " +
+                       std::to_string(param.validation.max_value);
+            }
         }
-        
-        // 浮点数范围验证
+
+        // 浮点数范围验证（使用 strtod + errno，Zero Exceptions）
         if (param.validation.has_min || param.validation.has_max) {
-            try {
-                double val = std::stod(value);
-                if (param.validation.has_min && val < param.validation.min_double) {
-                    return "Parameter '" + param.name + "' must be at least " +
-                           std::to_string(param.validation.min_double);
-                }
-                if (param.validation.has_max && val > param.validation.max_double) {
-                    return "Parameter '" + param.name + "' must be at most " +
-                           std::to_string(param.validation.max_double);
-                }
-            } catch (const std::exception&) {
+            errno = 0;
+            char* endptr = nullptr;
+            double val = strtod(value.c_str(), &endptr);
+
+            // 检查转换是否失败
+            if (endptr == value.c_str() || *endptr != '\0') {
                 return "Parameter '" + param.name + "' must be a valid number";
+            }
+
+            // 检查是否溢出
+            if (errno == ERANGE) {
+                return "Parameter '" + param.name + "' must be a valid number";
+            }
+
+            if (param.validation.has_min && val < param.validation.min_double) {
+                return "Parameter '" + param.name + "' must be at least " +
+                       std::to_string(param.validation.min_double);
+            }
+            if (param.validation.has_max && val > param.validation.max_double) {
+                return "Parameter '" + param.name + "' must be at most " +
+                       std::to_string(param.validation.max_double);
             }
         }
         
@@ -502,40 +525,85 @@ public:
         return (it != req_.query_params.end()) ? it->second : default_value;
     }
     
-    // 获取整数查询参数
+    // 获取整数查询参数（使用 strtol + errno，Zero Exceptions）
     int getQueryInt(const std::string& name, int default_value = 0) const {
         auto it = req_.query_params.find(name);
         if (it == req_.query_params.end()) return default_value;
-        
-        try {
-            return std::stoi(it->second);
-        } catch (...) {
+
+        const std::string& value = it->second;
+        if (value.empty()) return default_value;
+
+        errno = 0;
+        char* endptr = nullptr;
+        long result = strtol(value.c_str(), &endptr, 10);
+
+        // 检查转换是否失败
+        if (endptr == value.c_str() || *endptr != '\0') {
+            return default_value;  // 不是有效的数字
+        }
+
+        // 检查是否溢出
+        if (errno == ERANGE) {
             return default_value;
         }
+
+        // 检查是否超出 int 范围
+        if (result < static_cast<long>(std::numeric_limits<int>::min()) ||
+            result > static_cast<long>(std::numeric_limits<int>::max())) {
+            return default_value;
+        }
+
+        return static_cast<int>(result);
     }
-    
-    // 获取64位整数查询参数
+
+    // 获取64位整数查询参数（使用 strtoll + errno，Zero Exceptions）
     int64_t getQueryInt64(const std::string& name, int64_t default_value = 0) const {
         auto it = req_.query_params.find(name);
         if (it == req_.query_params.end()) return default_value;
-        
-        try {
-            return std::stoll(it->second);
-        } catch (...) {
+
+        const std::string& value = it->second;
+        if (value.empty()) return default_value;
+
+        errno = 0;
+        char* endptr = nullptr;
+        long long result = strtoll(value.c_str(), &endptr, 10);
+
+        // 检查转换是否失败
+        if (endptr == value.c_str() || *endptr != '\0') {
+            return default_value;  // 不是有效的数字
+        }
+
+        // 检查是否溢出
+        if (errno == ERANGE) {
             return default_value;
         }
+
+        return static_cast<int64_t>(result);
     }
-    
-    // 获取浮点查询参数
+
+    // 获取浮点查询参数（使用 strtod + errno，Zero Exceptions）
     double getQueryDouble(const std::string& name, double default_value = 0.0) const {
         auto it = req_.query_params.find(name);
         if (it == req_.query_params.end()) return default_value;
-        
-        try {
-            return std::stod(it->second);
-        } catch (...) {
+
+        const std::string& value = it->second;
+        if (value.empty()) return default_value;
+
+        errno = 0;
+        char* endptr = nullptr;
+        double result = strtod(value.c_str(), &endptr);
+
+        // 检查转换是否失败
+        if (endptr == value.c_str() || *endptr != '\0') {
+            return default_value;  // 不是有效的数字
+        }
+
+        // 检查是否溢出
+        if (errno == ERANGE) {
             return default_value;
         }
+
+        return result;
     }
     
     // 获取布尔查询参数

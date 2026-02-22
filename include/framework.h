@@ -18,6 +18,7 @@
 #include <sstream>
 #include <algorithm>
 #include <type_traits>
+#include <limits>
 #include <iostream>
 #include <regex>
 #include <ctime>
@@ -176,7 +177,7 @@ public:
         return initialized_;
     }
     
-    // 获取值
+    // 获取值（异常版本）
     T& value() {
         if (!initialized_) {
             throw std::runtime_error("bad_optional_access");
@@ -189,6 +190,14 @@ public:
             throw std::runtime_error("bad_optional_access");
         }
         return *ptr();
+    }
+    
+    // 获取值或默认值（零异常版本）
+    T value_or(const T& default_value) const {
+        if (initialized_) {
+            return *ptr();
+        }
+        return default_value;
     }
     
     // 操作符 ->
@@ -515,11 +524,14 @@ struct FieldValidation {
     bool has_max_value;  // 是否设置了最大值
     std::string pattern;
     std::vector<std::string> enum_values;
+    bool has_pattern;  // 是否设置了正则表达式
+    bool has_enum;  // 是否设置了枚举值
     bool use_optional;  // 是否使用 optional 容器
-    
-    FieldValidation() 
+
+    FieldValidation()
         : required(false), min_length(0), max_length(0), has_min_length(false), has_max_length(false),
           min_value(0), max_value(0), has_min_value(false), has_max_value(false),
+          has_pattern(false), has_enum(false),
           use_optional(false) {}
 };
 
@@ -531,13 +543,47 @@ inline std::string applyValidation(const cJSON* json, const FieldValidation& val
     if (cJSON_IsString(json)) {
         const char* str = json->valuestring;
         size_t len = strlen(str);
-        
+        std::string value_str(str);
+
         if (validation.has_min_length && len < static_cast<size_t>(validation.min_length)) {
             return "Field '" + field_name + "' must be at least " + std::to_string(validation.min_length) + " characters";
         }
-        
+
         if (validation.has_max_length && len > static_cast<size_t>(validation.max_length)) {
             return "Field '" + field_name + "' must be at most " + std::to_string(validation.max_length) + " characters";
+        }
+
+        // 正则表达式验证
+        if (validation.has_pattern) {
+            try {
+                std::regex regex_pattern(validation.pattern);
+                if (!std::regex_match(value_str, regex_pattern)) {
+                    return "Field '" + field_name + "' does not match the required pattern";
+                }
+            } catch (const std::regex_error& e) {
+                // 正则表达式编译错误，返回详细的错误信息
+                return "Field '" + field_name + "' has invalid regex pattern: " + validation.pattern + " (error code: " + std::to_string(e.code()) + ")";
+            }
+        }
+
+        // 枚举值验证
+        if (validation.has_enum) {
+            bool found = false;
+            for (const auto& enum_val : validation.enum_values) {
+                if (value_str == enum_val) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                // 构建允许的值列表
+                std::string allowed_values;
+                for (size_t i = 0; i < validation.enum_values.size(); ++i) {
+                    if (i > 0) allowed_values += ", ";
+                    allowed_values += "'" + validation.enum_values[i] + "'";
+                }
+                return "Field '" + field_name + "' must be one of: " + allowed_values;
+            }
         }
     }
     
@@ -703,12 +749,14 @@ public:
     // 正则表达式
     FieldBuilder& pattern(const std::string& regex) {
         validation_.pattern = regex;
+        validation_.has_pattern = true;
         return *this;
     }
     
     // 枚举值
     FieldBuilder& enumValues(const std::vector<std::string>& values) {
         validation_.enum_values = values;
+        validation_.has_enum = true;
         return *this;
     }
     
@@ -1785,50 +1833,137 @@ struct HttpRequest {
     std::string body;
     int64_t user_id;
     
-    // 路径参数（智能推断类型）
-    // auto pathAuto(const std::string& key) const -> std::variant<std::string, int64_t>;  // C++11不支持
+    // 路径参数（智能推断类型，Zero Exceptions）
+    // 使用 strtol/strtod + errno 替代 std::stoll/std::stod，避免异常抛出
     
+    // 路径参数 - 必需参数（返回 T）
     template<typename T>
     T path(const std::string& key) const {
+        return path<T>(key, T());
+    }
+
+    // 路径参数 - 可选参数（返回 optional<T>）
+    template<typename T>
+    optional<T> pathOpt(const std::string& key) const {
         std::map<std::string, std::string>::const_iterator it = path_params.find(key);
         if (it == path_params.end()) {
-            return T();
+            return optional<T>();  // 无值
         }
-        
-        if (std::is_same<T, std::string>::value) {
-            return it->second;
-        } else if (std::is_integral<T>::value) {
-            return static_cast<T>(std::stoll(it->second));
-        } else if (std::is_floating_point<T>::value) {
-            return static_cast<T>(std::stod(it->second));
-        } else {
-            return T(it->second);
-        }
+
+        const std::string& value = it->second;
+        return parseValue<T>(value);
     }
-    
+
+    // 路径参数 - 带默认值（返回 T）
     template<typename T>
     T path(const std::string& key, const T& default_value) const {
         std::map<std::string, std::string>::const_iterator it = path_params.find(key);
-        if (it != path_params.end()) {
-            if (std::is_same<T, std::string>::value) {
-                return it->second;
-            } else if (std::is_integral<T>::value) {
-                return static_cast<T>(std::stoll(it->second));
-            } else if (std::is_floating_point<T>::value) {
-                return static_cast<T>(std::stod(it->second));
-            } else {
-                return T(it->second);
-            }
+        if (it == path_params.end()) {
+            return default_value;
         }
-        return default_value;
+
+        const std::string& value = it->second;
+        return parseValue<T>(value).value_or(default_value);
     }
-    
-    // 查询参数
+
+    // 查询参数 - 必需参数（返回 T）
     template<typename T>
-    T query(const std::string& key) const;
-    
+    T query(const std::string& key) const {
+        return query<T>(key, T());
+    }
+
+    // 查询参数 - 可选参数（返回 optional<T>）
+    template<typename T>
+    optional<T> queryOpt(const std::string& key) const {
+        std::map<std::string, std::string>::const_iterator it = query_params.find(key);
+        if (it == query_params.end()) {
+            return optional<T>();  // 无值
+        }
+
+        const std::string& value = it->second;
+        return parseValue<T>(value);
+    }
+
+    // 查询参数 - 带默认值（返回 T）
     template<typename T>
     T query(const std::string& key, const T& default_value) const;
+
+private:
+    // 辅助函数：安全地解析字符串值为指定类型（返回 optional<T>）
+    template<typename T>
+    static optional<T> parseValue(const std::string& value) {
+        // 字符串类型
+        if (std::is_same<T, std::string>::value) {
+            return optional<T>(value);
+        }
+
+        // 布尔类型
+        if (std::is_same<T, bool>::value) {
+            bool result = (value == "true" || value == "1" || value == "yes" || value == "on");
+            return optional<T>(result);
+        }
+
+        // 整数类型（使用 strtol/strtoll + errno）
+        if (std::is_integral<T>::value) {
+            if (value.empty()) {
+                return optional<T>();
+            }
+
+            errno = 0;
+            char* endptr = nullptr;
+            long long result = strtoll(value.c_str(), &endptr, 10);
+
+            // 检查转换是否失败
+            if (endptr == value.c_str() || *endptr != '\0') {
+                return optional<T>();
+            }
+
+            // 检查是否溢出
+            if (errno == ERANGE) {
+                return optional<T>();
+            }
+
+            // 检查是否超出目标类型的范围
+            if (result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+                result > static_cast<long long>(std::numeric_limits<T>::max())) {
+                return optional<T>();
+            }
+
+            return optional<T>(static_cast<T>(result));
+        }
+
+        // 浮点数类型（使用 strtod + errno）
+        if (std::is_floating_point<T>::value) {
+            if (value.empty()) {
+                return optional<T>();
+            }
+
+            errno = 0;
+            char* endptr = nullptr;
+            double result = strtod(value.c_str(), &endptr);
+
+            // 检查转换是否失败
+            if (endptr == value.c_str() || *endptr != '\0') {
+                return optional<T>();
+            }
+
+            // 残检查是否溢出
+            if (errno == ERANGE) {
+                return optional<T>();
+            }
+
+            // 检查是否超出目标类型的范围
+            if (result < static_cast<double>(std::numeric_limits<T>::min()) ||
+                result > static_cast<double>(std::numeric_limits<T>::max())) {
+                return optional<T>();
+            }
+
+            return optional<T>(static_cast<T>(result));
+        }
+
+        // 默认返回字符串
+        return optional<T>(value);
+    }
     
     // Body 反序列化
     template<typename T>
