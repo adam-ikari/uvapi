@@ -22,19 +22,24 @@ struct User {
     int age;
     bool active;
     
+    // 实现 schema() 方法（用于 Body 解析）
+    static BodySchemaBase* schema() {
+        static BodySchema<User> schema_;
+        return &schema_;
+    }
+    
     std::string toJson() const {
         std::ostringstream oss;
-        oss << "{" 
-            << "\"id\":" << id << "," 
-            << "\"username\":\"" << username << "\"," 
-            << "\"email\":\"" << email << "\"," 
-            << "\"age\":" << age << "," 
-            << "\"active\":" << (active ? "true" : "false") 
+        oss << "{"
+            << "\"id\":" << id << ","
+            << "\"username\":\"" << username << "\","
+            << "\"email\":\"" << email << "\","
+            << "\"age\":" << age << ","
+            << "\"active\":" << (active ? "true" : "false")
             << "}";
         return oss.str();
     }
 };
-
 // ========== Schema 定义（可复用）==========
 
 auto userSchema = Schema<User>()

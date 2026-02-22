@@ -1870,6 +1870,17 @@ struct HttpRequest {
         const std::string& value = it->second;
         return parseValue<T>(value);
     }
+    
+    // Request Body - 返回 optional<T>
+    // 框架会根据 Schema 验证并解析 Body
+    template<typename T>
+    optional<T> body() const {
+        if (body.empty()) {
+            return optional<T>();
+        }
+        T result = parseBody<T>();
+        return optional<T>(result);
+    }
 
 private:
     // 辅助函数：安全地解析字符串值为指定类型（返回 optional<T>）
@@ -2496,7 +2507,8 @@ private:
 // 参数类型
 enum class ParamType {
     PATH,   // URL 路径参数
-    QUERY   // Query 查询参数
+    QUERY,  // Query 查询参数
+    BODY    // Request Body 字段
 };
 
 // 参数验证规则
