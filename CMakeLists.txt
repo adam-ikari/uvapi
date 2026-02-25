@@ -109,43 +109,50 @@ add_executable(upload_example
     src/multipart.cpp
 )
 
-# 添加示例程序以测试
-add_executable(auth_server
-    examples/auth_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
+# 静态文件示例 - 需要实现应用层静态文件服务
+# add_executable(static_files_example
+#     examples/static_files_example.cpp
+#     src/framework_uvhttp.cpp
+#     src/multipart.cpp
+# )
 
-add_executable(crud_server
-    examples/crud_server.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
+# target_link_libraries(static_files_example
+#     -Wl,--start-group
+#     uvhttp
+#     uv
+#     llhttp
+#     cjson
+#     mbedtls
+#     mbedx509
+#     mbedcrypto
+#     mimalloc
+#     -Wl,--end-group
+#     pthread
+#     dl
+# )
 
-add_executable(dsl_example
-    examples/dsl_example.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
-
-add_executable(schema_example
-    examples/schema_example.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
-
-add_executable(schema_dsl_example
-    examples/schema_dsl_example.cpp
-    src/framework_uvhttp.cpp
-    src/multipart.cpp
-)
-
+# 声明式 DSL 示例
 add_executable(declarative_dsl_example
     examples/declarative_dsl_example.cpp
     src/framework_uvhttp.cpp
     src/multipart.cpp
 )
 
+# 声明式 DSL 自动解析示例
+add_executable(declarative_dsl_auto_parse
+    examples/declarative_dsl_auto_parse.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# JSON 使用示例
+add_executable(json_usage_example
+    examples/json_usage_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# 性能测试服务器
 add_executable(benchmark_server
     examples/benchmark_server.cpp
     src/framework_uvhttp.cpp
@@ -162,6 +169,37 @@ target_link_libraries(declarative_dsl_example
     mbedtls
     mbedx509
     mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(declarative_dsl_auto_parse
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(json_usage_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -176,48 +214,7 @@ target_link_libraries(benchmark_server
     mbedtls
     mbedx509
     mbedcrypto
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(crud_server
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(schema_dsl_example
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(auth_server
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -232,34 +229,7 @@ target_link_libraries(uvhttp_middleware_example
     mbedtls
     mbedx509
     mbedcrypto
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(dsl_example
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
-    -Wl,--end-group
-    pthread
-    dl
-)
-
-target_link_libraries(schema_example
-    -Wl,--start-group
-    uvhttp
-    uv
-    llhttp
-    cjson
-    mbedtls
-    mbedx509
-    mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
@@ -274,18 +244,39 @@ target_link_libraries(upload_example
     mbedtls
     mbedx509
     mbedcrypto
+    mimalloc
     -Wl,--end-group
     pthread
     dl
 )
 
-# 编译选项
-target_compile_options(benchmark_server PRIVATE -Wall -Wextra -O2)
-target_compile_options(crud_server PRIVATE -Wall -Wextra -O2)
-target_compile_options(auth_server PRIVATE -Wall -Wextra -O2)
-target_compile_options(uvhttp_middleware_example PRIVATE -Wall -Wextra -O2)
-target_compile_options(dsl_example PRIVATE -Wall -Wextra -O2)
-target_compile_options(declarative_dsl_example PRIVATE -Wall -Wextra -O2)
-target_compile_options(schema_dsl_example PRIVATE -Wall -Wextra -O2)
-target_compile_options(schema_example PRIVATE -Wall -Wextra -O2)
-target_compile_options(upload_example PRIVATE -Wall -Wextra -O2)
+# ========== 单元测试 ==========
+
+# 启用测试
+enable_testing()
+
+# 声明式 DSL 自动解析单元测试
+add_executable(test_declarative_dsl_auto_parse
+    test/unit/test_declarative_dsl_auto_parse.cpp
+    src/framework_uvhttp.cpp
+)
+
+target_link_libraries(test_declarative_dsl_auto_parse
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+# 添加测试用例
+add_test(NAME declarative_dsl_auto_parse_test COMMAND test_declarative_dsl_auto_parse)
+
+# 编译选项已在全局设置 CMAKE_CXX_FLAGS 中定义

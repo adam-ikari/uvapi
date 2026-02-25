@@ -15,39 +15,43 @@ int main() {
     uv_loop_t* loop = uv_default_loop();
     server::Server server(loop);
     
-    // 简单的文本响应（零拷贝优化）
+    // 简单的文本响应（零拷贝优化 + 移动语义）
     server.addRoute("/", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
+        (void)req;
         request_count++;
         HttpResponse resp(200);
         resp.header("Content-Type", "text/plain");
         resp.setBody("Hello, World!");
         return resp;
     });
-    
-    // JSON 响应（零拷贝优化）
+
+    // JSON 响应（零拷贝优化 + 移动语义）
     server.addRoute("/json", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
+        (void)req;
         request_count++;
         HttpResponse resp(200);
         resp.header("Content-Type", "application/json");
         resp.setBody("{\"status\":\"ok\",\"message\":\"Hello, World!\"}");
         return resp;
     });
-    
-    // 健康检查（零拷贝优化）
+
+    // 健康检查（零拷贝优化 + 移动语义）
     server.addRoute("/health", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
+        (void)req;
         request_count++;
         HttpResponse resp(200);
         resp.header("Content-Type", "text/plain");
         resp.setBody("OK");
         return resp;
     });
-    
-    // 请求统计（零拷贝优化）
+
+    // 请求统计（零拷贝优化 + 移动语义）
     server.addRoute("/stats", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
+        (void)req;
         HttpResponse resp(200);
         resp.header("Content-Type", "application/json");
         std::string body = "{\"total_requests\":" + std::to_string(request_count.load()) + "}";
-        resp.setBody(body);
+        resp.setBody(std::move(body));
         return resp;
     });
     

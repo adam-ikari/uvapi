@@ -16,10 +16,11 @@ using namespace uvhttp_middleware;
 int my_handler(uvhttp_request_t* uv_req, uvhttp_response_t* uv_resp) {
     // 使用预定义的中间件链
     UVHTTP_EXECUTE_MIDDLEWARE_CHAIN(uv_req, uv_resp, standard_chain);
-    
+
     // 处理请求
     const char* path = uvhttp_request_get_path(uv_req);
-    
+    (void)path;  // 暂时未使用，消除警告
+
     std::string body = "{\"code\":200,\"message\":\"Hello from UVHTTP Middleware!\"}";
     
     uvhttp_response_set_status(uv_resp, 200);
@@ -69,6 +70,8 @@ int custom_handler(uvhttp_request_t* uv_req, uvhttp_response_t* uv_resp) {
 }
 
 int main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     std::cout << "=== UVHTTP 中间件使用示例 ===" << std::endl;
     
     uv_loop_t* loop = uv_default_loop();

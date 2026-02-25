@@ -208,6 +208,293 @@ struct RangeParam {
     }
 };
 
+// ========== 参数验证器 ==========
+
+struct ValidationResult {
+    bool success;
+    std::string error_message;
+    std::string field_name;
+
+    ValidationResult() : success(true), error_message(""), field_name("") {}
+    ValidationResult(bool s, const std::string& msg, const std::string& field)
+        : success(s), error_message(msg), field_name(field) {}
+
+    static ValidationResult ok() {
+        return ValidationResult(true, "", "");
+    }
+
+    static ValidationResult error(const std::string& field, const std::string& msg) {
+        return ValidationResult(false, msg, field);
+    }
+};
+
+class ParameterValidator {
+public:
+    // 验证单个参数
+    static ValidationResult validate(const std::string& name, const std::string& value,
+                                     const restful::ParamDefinition& def) {
+        // 检查必需参数
+        if (def.validation.required && value.empty()) {
+            return ValidationResult::error(name, "Required parameter is missing");
+        }
+
+        // 如果值为空且非必需，跳过验证
+        if (value.empty() && !def.validation.required) {
+            return ValidationResult::ok();
+        }
+
+        // 类型验证
+        if (!validateType(value, def.data_type)) {
+            return ValidationResult::error(name, "Invalid parameter type");
+        }
+
+        // 范围验证
+        if (def.validation.has_min || def.validation.has_max) {
+            ValidationResult range_result = validateRange(name, value, def);
+            if (!range_result.success) {
+                return range_result;
+            }
+        }
+
+        // 长度验证
+        if (def.validation.has_min_length || def.validation.has_max_length) {
+            ValidationResult length_result = validateLength(name, value, def);
+            if (!length_result.success) {
+                return length_result;
+            }
+        }
+
+        // 正则表达式验证
+        if (def.validation.has_pattern) {
+            ValidationResult pattern_result = validatePattern(name, value, def);
+            if (!pattern_result.success) {
+                return pattern_result;
+            }
+        }
+
+        // 枚举值验证
+        if (def.validation.has_enum) {
+            ValidationResult enum_result = validateEnum(name, value, def);
+            if (!enum_result.success) {
+                return enum_result;
+            }
+        }
+
+        return ValidationResult::ok();
+    }
+
+private:
+    // 验证类型
+    static bool validateType(const std::string& value, int data_type) {
+        if (value.empty()) return true;
+
+        switch (data_type) {
+            case 0:  // STRING
+                return true;
+            case 1:  // INT
+            case 2:  // INT64
+            case 3:  // DOUBLE
+            case 4:  // FLOAT
+                return isNumeric(value);
+            case 5:  // BOOL
+                return isBoolean(value);
+            default:
+                return true;
+        }
+    }
+
+    // 验证范围
+    static ValidationResult validateRange(const std::string& name, const std::string& value,
+                                           const restful::ParamDefinition& def) {
+        if (value.empty()) return ValidationResult::ok();
+
+        if (def.data_type == 1 || def.data_type == 2) {
+            // 整数范围验证
+            int64_t int_val;
+            if (!parseInt64(value, int_val)) {
+                return ValidationResult::error(name, "Invalid integer value");
+            }
+
+            if (def.validation.has_min && int_val < def.validation.min_value) {
+                return ValidationResult::error(name, "Value is too small");
+            }
+
+            if (def.validation.has_max && int_val > def.validation.max_value) {
+                return ValidationResult::error(name, "Value is too large");
+            }
+        } else if (def.data_type == 3 || def.data_type == 4) {
+            // 浮点数范围验证
+            double double_val;
+            if (!parseDouble(value, double_val)) {
+                return ValidationResult::error(name, "Invalid numeric value");
+            }
+
+            if (def.validation.has_min && double_val < static_cast<double>(def.validation.min_value)) {
+                return ValidationResult::error(name, "Value is too small");
+            }
+
+            if (def.validation.has_max && double_val > static_cast<double>(def.validation.max_value)) {
+                return ValidationResult::error(name, "Value is too large");
+            }
+        }
+
+        return ValidationResult::ok();
+    }
+
+    // 验证长度
+    static ValidationResult validateLength(const std::string& name, const std::string& value,
+                                           const restful::ParamDefinition& def) {
+        size_t len = value.length();
+
+        if (def.validation.has_min_length && len < static_cast<size_t>(def.validation.min_length)) {
+            return ValidationResult::error(name, "Value is too short");
+        }
+
+        if (def.validation.has_max_length && len > static_cast<size_t>(def.validation.max_length)) {
+            return ValidationResult::error(name, "Value is too long");
+        }
+
+        return ValidationResult::ok();
+    }
+
+    // 验证正则表达式
+    static ValidationResult validatePattern(const std::string& name, const std::string& value,
+                                            const restful::ParamDefinition& def) {
+        try {
+            std::regex pattern(def.validation.pattern);
+            if (!std::regex_match(value, pattern)) {
+                return ValidationResult::error(name, "Value does not match required pattern");
+            }
+        } catch (const std::regex_error&) {
+            // 正则表达式错误，跳过验证
+        }
+
+        return ValidationResult::ok();
+    }
+
+    // 验证枚举值
+    static ValidationResult validateEnum(const std::string& name, const std::string& value,
+                                         const restful::ParamDefinition& def) {
+        for (const std::string& valid_value : def.validation.enum_values) {
+            if (value == valid_value) {
+                return ValidationResult::ok();
+            }
+        }
+
+        return ValidationResult::error(name, "Value is not in the allowed list");
+    }
+
+    // 辅助函数：检查是否为数字
+    static bool isNumeric(const std::string& s) {
+        if (s.empty()) return false;
+        size_t start = 0;
+        if (s[0] == '-') start = 1;
+        for (size_t i = start; i < s.length(); ++i) {
+            if (!std::isdigit(s[i]) && s[i] != '.') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 辅助函数：检查是否为布尔值
+    static bool isBoolean(const std::string& s) {
+        return s == "true" || s == "false" || s == "1" || s == "0";
+    }
+
+    // 辅助函数：解析整数
+    static bool parseInt64(const std::string& s, int64_t& result) {
+        char* end = nullptr;
+        errno = 0;
+        int64_t val = std::strtoll(s.c_str(), &end, 10);
+        if (errno != 0 || *end != '\0') {
+            return false;
+        }
+        result = val;
+        return true;
+    }
+
+    // 辅助函数：解析浮点数
+    static bool parseDouble(const std::string& s, double& result) {
+        char* end = nullptr;
+        errno = 0;
+        double val = std::strtod(s.c_str(), &end);
+        if (errno != 0 || *end != '\0') {
+            return false;
+        }
+        result = val;
+        return true;
+    }
+};
+
+// ========== 参数解析器 ==========
+
+class ParameterParser {
+public:
+    // 从 HttpRequest 提取并解析所有参数
+    static std::map<std::string, std::string> extract(const HttpRequest& req,
+                                                       const std::vector<restful::ParamDefinition>& params) {
+        std::map<std::string, std::string> result;
+
+        for (const restful::ParamDefinition& def : params) {
+            std::string value;
+
+            // 根据参数类型从不同位置提取
+            if (def.type == restful::ParamType::QUERY) {
+                value = extractQueryParam(req, def.name);
+            } else if (def.type == restful::ParamType::PATH) {
+                value = extractPathParam(req, def.name);
+            }
+
+            // 如果没有值且不是必需参数，使用默认值
+            if (value.empty() && !def.validation.required) {
+                value = def.default_value;
+            }
+
+            result[def.name] = value;
+        }
+
+        return result;
+    }
+
+    // 验证所有参数
+    static ValidationResult validateAll(const std::map<std::string, std::string>& values,
+                                        const std::vector<restful::ParamDefinition>& params) {
+        for (const restful::ParamDefinition& def : params) {
+            std::map<std::string, std::string>::const_iterator it = values.find(def.name);
+            if (it == values.end()) {
+                return ValidationResult::error(def.name, "Parameter not found");
+            }
+
+            ValidationResult result = ParameterValidator::validate(def.name, it->second, def);
+            if (!result.success) {
+                return result;
+            }
+        }
+
+        return ValidationResult::ok();
+    }
+
+private:
+    // 提取查询参数
+    static std::string extractQueryParam(const HttpRequest& req, const std::string& name) {
+        std::map<std::string, std::string>::const_iterator it = req.query_params.find(name);
+        if (it != req.query_params.end()) {
+            return it->second;
+        }
+        return "";
+    }
+
+    // 提取路径参数
+    static std::string extractPathParam(const HttpRequest& req, const std::string& name) {
+        std::map<std::string, std::string>::const_iterator it = req.path_params.find(name);
+        if (it != req.path_params.end()) {
+            return it->second;
+        }
+        return "";
+    }
+};
+
 // ========== API 定义 ==========
 
 struct ApiDefinition {
@@ -215,66 +502,111 @@ struct ApiDefinition {
     HttpMethod method;
     std::vector<restful::ParamDefinition> params;
     std::function<HttpResponse(const HttpRequest&)> handler;
+    std::function<HttpResponse(const HttpRequest&, const std::map<std::string, std::string>&)> handler_with_params;
     std::vector<restful::ParamDefinition> body_fields;  // Body Schema 字段
-    
-    ApiDefinition(const std::string& p, HttpMethod m) 
+
+    ApiDefinition(const std::string& p, HttpMethod m)
         : path(p), method(m) {}
     
     // 添加必需参数
     template<typename T>
     ApiDefinition& param(const std::string& name, const Required<T>& req) {
+        (void)req;  // 验证规则暂未实现
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
         def.validation.required = true;
-        
+
         if (std::is_same<T, int>::value) def.data_type = 1;
         else if (std::is_same<T, int64_t>::value) def.data_type = 2;
         else if (std::is_same<T, double>::value) def.data_type = 3;
         else if (std::is_same<T, float>::value) def.data_type = 4;
         else if (std::is_same<T, bool>::value) def.data_type = 5;
         else if (std::is_same<T, std::string>::value) def.data_type = 0;
-        
+
         params.push_back(def);
         return *this;
     }
-    
-    // 添加可选参数（带默认值）
-    template<typename T>
-    ApiDefinition& param(const std::string& name, const OptionalWithDefault<T>& opt) {
+
+    // 添加可选参数（带默认值）- 模板特化
+    // bool 特化
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<bool>& opt) {
+        (void)opt;
         restful::ParamDefinition def(name, restful::ParamType::QUERY);
         def.validation.required = false;
-        
-        if constexpr (std::is_same<T, bool>::value) {
-            def.default_value = opt.default_value ? "true" : "false";
-        } else if constexpr (std::is_same<T, std::string>::value) {
-            def.default_value = opt.default_value;
-        } else {
-            def.default_value = std::to_string(opt.default_value);
-        }
-        
-        if (std::is_same<T, int>::value) def.data_type = 1;
-        else if (std::is_same<T, int64_t>::value) def.data_type = 2;
-        else if (std::is_same<T, double>::value) def.data_type = 3;
-        else if (std::is_same<T, float>::value) def.data_type = 4;
-        else if (std::is_same<T, bool>::value) def.data_type = 5;
-        else if (std::is_same<T, std::string>::value) def.data_type = 0;
-        
+        def.default_value = opt.default_value ? "true" : "false";
+        def.data_type = 5;
         params.push_back(def);
         return *this;
     }
-    
+
+    // string 特化
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<std::string>& opt) {
+        (void)opt;
+        restful::ParamDefinition def(name, restful::ParamType::QUERY);
+        def.validation.required = false;
+        def.default_value = opt.default_value;
+        def.data_type = 0;
+        params.push_back(def);
+        return *this;
+    }
+
+    // int 特化
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<int>& opt) {
+        (void)opt;
+        restful::ParamDefinition def(name, restful::ParamType::QUERY);
+        def.validation.required = false;
+        def.default_value = std::to_string(opt.default_value);
+        def.data_type = 1;
+        params.push_back(def);
+        return *this;
+    }
+
+    // int64_t 特化
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<int64_t>& opt) {
+        (void)opt;
+        restful::ParamDefinition def(name, restful::ParamType::QUERY);
+        def.validation.required = false;
+        def.default_value = std::to_string(opt.default_value);
+        def.data_type = 2;
+        params.push_back(def);
+        return *this;
+    }
+
+    // double 特化
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<double>& opt) {
+        (void)opt;
+        restful::ParamDefinition def(name, restful::ParamType::QUERY);
+        def.validation.required = false;
+        def.default_value = std::to_string(opt.default_value);
+        def.data_type = 3;
+        params.push_back(def);
+        return *this;
+    }
+
+    // float 特化
+    ApiDefinition& param(const std::string& name, const OptionalWithDefault<float>& opt) {
+        (void)opt;
+        restful::ParamDefinition def(name, restful::ParamType::QUERY);
+        def.validation.required = false;
+        def.default_value = std::to_string(opt.default_value);
+        def.data_type = 4;
+        params.push_back(def);
+        return *this;
+    }
+
     // 添加路径参数
     template<typename T>
     ApiDefinition& pathParam(const std::string& name, const Required<T>& req) {
+        (void)req;  // 验证规则暂未实现
         restful::ParamDefinition def(name, restful::ParamType::PATH);
         def.validation.required = true;
-        
+
         if (std::is_same<T, int>::value) def.data_type = 1;
         else if (std::is_same<T, int64_t>::value) def.data_type = 2;
         else if (std::is_same<T, double>::value) def.data_type = 3;
         else if (std::is_same<T, float>::value) def.data_type = 4;
         else if (std::is_same<T, bool>::value) def.data_type = 5;
         else if (std::is_same<T, std::string>::value) def.data_type = 0;
-        
+
         params.push_back(def);
         return *this;
     }
@@ -324,10 +656,45 @@ struct ApiDefinition {
         return *this;
     }
     
-    // 设置处理器
+    // 设置处理器（旧版：手动解析参数）
     ApiDefinition& handle(std::function<HttpResponse(const HttpRequest&)> h) {
         handler = h;
         return *this;
+    }
+
+    // 设置处理器（新版：自动解析和验证参数）
+    ApiDefinition& handleWithParams(std::function<HttpResponse(const HttpRequest&, const std::map<std::string, std::string>&)> h) {
+        handler_with_params = h;
+        return *this;
+    }
+
+    // 执行处理器（自动解析和验证）
+    HttpResponse executeHandler(const HttpRequest& req) const {
+        // 如果有自动解析的 handler，使用它
+        if (handler_with_params) {
+            // 提取参数
+            std::map<std::string, std::string> extracted_params = ParameterParser::extract(req, params);
+
+            // 验证参数
+            ValidationResult validation_result = ParameterParser::validateAll(extracted_params, params);
+            if (!validation_result.success) {
+                // 验证失败，返回 400 错误
+                std::string error_json = "{\"code\":400,\"message\":\"" + validation_result.error_message +
+                                        "\",\"field\":\"" + validation_result.field_name + "\"}";
+                return HttpResponse(400).json(error_json);
+            }
+
+            // 调用处理器
+            return handler_with_params(req, extracted_params);
+        }
+
+        // 否则使用旧的 handler
+        if (handler) {
+            return handler(req);
+        }
+
+        // 没有 handler，返回 404
+        return HttpResponse(404).json("{\"code\":404,\"message\":\"No handler found\"}");
     }
     
     // 设置 Request Body Schema

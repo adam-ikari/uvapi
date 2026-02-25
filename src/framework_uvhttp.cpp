@@ -132,7 +132,7 @@ int on_uvhttp_request(uvhttp_request_t* req, uvhttp_response_t* resp) {
     
     // 获取 server 实例
     // 通过 req->client->data 获取 connection，然后通过 connection->server 获取服务器
-    uvhttp_connection_t* conn = (uvhttp_connection_t*)req->client->data;
+    uvhttp_connection_t* conn = static_cast<uvhttp_connection_t*>(req->client->data);
     if (!conn || !conn->server) {
         uvhttp_response_set_status(resp, 500);
         uvhttp_response_send(resp);
@@ -145,7 +145,7 @@ int on_uvhttp_request(uvhttp_request_t* req, uvhttp_response_t* resp) {
         return -1;
     }
     
-    server::Server* svr_instance = (server::Server*)http_server->user_data;
+    server::Server* svr_instance = reinterpret_cast<server::Server*>(http_server->user_data);
     
     // 构造 HttpRequest
     HttpRequest uvapi_req;
@@ -525,8 +525,11 @@ std::string validateJsonType(const cJSON* json, FieldType expected_type, const s
         case FieldType::CUSTOM:
             // 自定义类型不进行类型检查
             break;
+        default:
+            // 未实现的类型，不进行验证
+            break;
     }
-    
+
     return "";
 }
 
@@ -587,6 +590,9 @@ void setFieldValue(void* instance, const FieldDefinition& field_def, const cJSON
         case FieldType::CUSTOM:
             // 自定义类型
             break;
+        default:
+            // 未实现的类型，不处理
+            break;
     }
 }
 
@@ -614,8 +620,10 @@ cJSON* createJsonField(void* instance, size_t offset, FieldType type) {
         case FieldType::CUSTOM:
             // TODO: 实现复杂类型
             return cJSON_CreateNull();
+        default:
+            return cJSON_CreateNull();
     }
-    
+
     return nullptr;
 }
 
@@ -759,15 +767,17 @@ std::string BodySchemaBase::toJson(void* instance) const {
 
 namespace restful {
 
-Api::Api(uv_loop_t* loop) 
+Api::Api(uv_loop_t* loop)
     : api_title_("RESTful API")
     , api_description_("A RESTful API framework")
     , api_version_("1.0.0")
     , running_(false)
+    , cors_config_()
     , cors_enabled_(false)
-    , server_(nullptr)
+    , tokens_()
     , token_generation_count_(0)
-    , last_cleanup_time_(0) {
+    , last_cleanup_time_(0)
+    , server_(nullptr) {
     
     if (!loop) {
         // 事件循环不能为空

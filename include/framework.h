@@ -463,20 +463,20 @@ inline CJsonStringPtr makeCJsonString(char* ptr) {
 
 
 struct ValidationResult {
-    bool success;
+    bool success_;
     std::string error_message;
     
     // 默认构造：成功
-    ValidationResult() : success(true), error_message("") {}
+    ValidationResult() : success_(true), error_message("") {}
     
     // 从字符串隐式转换：失败
-    ValidationResult(const std::string& error) : success(false), error_message(error) {}
+    ValidationResult(const std::string& error) : success_(false), error_message(error) {}
     
     // 从 const char* 隐式转换：失败
-    ValidationResult(const char* error) : success(false), error_message(error ? error : "") {}
+    ValidationResult(const char* error) : success_(false), error_message(error ? error : "") {}
     
     // 从 bool 隐式转换
-    ValidationResult(bool success) : success(success), error_message("") {}
+    ValidationResult(bool success) : success_(success), error_message("") {}
     
     // 静态工厂方法（保留以兼容现有代码）
     static ValidationResult ok() {
@@ -489,7 +489,7 @@ struct ValidationResult {
     
     // 转换为 bool（用于 if 条件判断）
     explicit operator bool() const {
-        return success;
+        return success_;
     }
 };
 
@@ -971,7 +971,7 @@ std::string toJson(const T& instance) {
         std::cerr << "Error: Schema not defined" << std::endl;
         return "{}";
     }
-    return schema->toJson((void*)&instance);
+    return schema->toJson(reinterpret_cast<void*>(&instance));
 }
 
 // 重载：直接返回字符串
@@ -2102,6 +2102,8 @@ public:
     }
     
     // ========== JSON 对象构建器 ==========
+    class Array;  // 前向声明
+    
     class Object {
     private:
         CJsonPtr root_;
@@ -2155,6 +2157,13 @@ public:
         Object& set(const std::string& key, const Object& obj) {
             if (root_ && obj.isValid()) {
                 cJSON_AddItemToObject(root_.get(), key.c_str(), cJSON_Duplicate(obj.get(), true));
+            }
+            return *this;
+        }
+        
+        Object& set(const std::string& key, const Array& arr) {
+            if (root_ && arr.isValid()) {
+                cJSON_AddItemToObject(root_.get(), key.c_str(), cJSON_Duplicate(arr.get(), true));
             }
             return *this;
         }
@@ -2258,6 +2267,12 @@ public:
             CJsonStringPtr json = uvapi::makeCJsonString(cJSON_PrintUnformatted(root_.get()));
             return std::string(json.get() ? json.get() : "[]");
         }
+        
+        // 检查数组是否有效
+        bool isValid() const { return root_ != nullptr; }
+        
+        // 获取原始 cJSON 指针（用于高级操作）
+        cJSON* get() const { return root_.get(); }
     };
     
     // ========== JSON 解析器 ==========

@@ -15,36 +15,41 @@ namespace uvhttp_middleware {
 /**
  * @brief 日志中间件
  */
-inline int logging_middleware(uvhttp_request_t* req, 
-                               uvhttp_response_t* resp, 
+inline int logging_middleware(uvhttp_request_t* req,
+                               uvhttp_response_t* resp,
                                uvhttp_middleware_context_t* ctx) {
+    (void)resp;
+    (void)ctx;
     const char* method = uvhttp_request_get_method(req);
     const char* path = uvhttp_request_get_path(req);
     printf("[LOG] %s %s\n", method ? method : "UNKNOWN", path ? path : "/");
-    
+
     return UVHTTP_MIDDLEWARE_CONTINUE;
 }
 
 /**
  * @brief CORS 中间件
  */
-inline int cors_middleware(uvhttp_request_t* req, 
-                           uvhttp_response_t* resp, 
+inline int cors_middleware(uvhttp_request_t* req,
+                           uvhttp_response_t* resp,
                            uvhttp_middleware_context_t* ctx) {
+    (void)req;
+    (void)ctx;
     // 设置 CORS 头
     uvhttp_response_set_header(resp, "Access-Control-Allow-Origin", "*");
     uvhttp_response_set_header(resp, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
     uvhttp_response_set_header(resp, "Access-Control-Allow-Headers", "Content-Type, Authorization");
-    
+
     return UVHTTP_MIDDLEWARE_CONTINUE;
 }
 
 /**
  * @brief 认证中间件（简单示例）
  */
-inline int auth_middleware(uvhttp_request_t* req, 
-                           uvhttp_response_t* resp, 
+inline int auth_middleware(uvhttp_request_t* req,
+                           uvhttp_response_t* resp,
                            uvhttp_middleware_context_t* ctx) {
+    (void)ctx;
     // 检查 Authorization 头
     const char* auth_header = uvhttp_request_get_header(req, "Authorization");
     if (!auth_header || strlen(auth_header) == 0) {
@@ -54,20 +59,21 @@ inline int auth_middleware(uvhttp_request_t* req,
         uvhttp_response_set_body(resp, body, strlen(body));
         return UVHTTP_MIDDLEWARE_STOP;
     }
-    
+
     // TODO: 实际的 token 验证逻辑
-    
+
     return UVHTTP_MIDDLEWARE_CONTINUE;
 }
 
 /**
  * @brief 响应时间中间件
  */
-inline int response_time_middleware(uvhttp_request_t* req, 
-                                    uvhttp_response_t* resp, 
+inline int response_time_middleware(uvhttp_request_t* req,
+                                    uvhttp_response_t* resp,
                                     uvhttp_middleware_context_t* ctx) {
-    static __thread uint64_t start_time = 0;
-    
+    (void)req;
+    (void)resp;
+
     if (!ctx->data) {
         // 请求开始：记录时间
         ctx->data = malloc(sizeof(uint64_t));
@@ -81,13 +87,13 @@ inline int response_time_middleware(uvhttp_request_t* req,
     } else {
         // 请求结束：计算响应时间
         uint64_t end_time = uv_hrtime();
-        uint64_t start_time = 0;
-        memcpy(&start_time, ctx->data, sizeof(uint64_t));
-        
-        double duration_ms = (end_time - start_time) / 1000000.0;
+        uint64_t req_start_time = 0;
+        memcpy(&req_start_time, ctx->data, sizeof(uint64_t));
+
+        double duration_ms = (end_time - req_start_time) / 1000000.0;
         printf("[RESPONSE_TIME] %.2f ms\n", duration_ms);
     }
-    
+
     return UVHTTP_MIDDLEWARE_CONTINUE;
 }
 

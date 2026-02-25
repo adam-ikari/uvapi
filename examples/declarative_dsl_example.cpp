@@ -21,9 +21,10 @@ int main() {
         .sort(SortParam().field("created_at").order("desc"))  // 排序参数
         .statusFilter({"active", "inactive", "pending"}, "active")  // 状态筛选
         .handle([](const HttpRequest& req) -> HttpResponse {
+            (void)req;
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
-    
+
     // 示例 2: 使用命名参数定义产品列表 API
     api.get("/api/products")
         .pagination(PageParam().page(1).limit(20))
@@ -32,16 +33,18 @@ int main() {
         .range("min_price", "max_price", RangeParam().min(0).max(1000000))  // 价格范围
         .statusFilter({"available", "out_of_stock", "discontinued"}, "available")
         .handle([](const HttpRequest& req) -> HttpResponse {
+            (void)req;
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
-    
+
     // 示例 3: 用户详情 API（路径参数）
     api.get("/api/users/:id")
         .pathParam("id", Required<int>()).range(1, INT_MAX)
         .handle([](const HttpRequest& req) -> HttpResponse {
+            (void)req;
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
-    
+
     // 示例 4: 创建用户 API
     api.post("/api/users")
         .param("username", Required<std::string>()).length(3, 20)
@@ -49,24 +52,27 @@ int main() {
         .param("age", OptionalWithDefault<int>(18)).range(18, 120)
         .param("active", OptionalWithDefault<bool>(true))
         .handle([](const HttpRequest& req) -> HttpResponse {
+            (void)req;
             return HttpResponse(201).json("{\"code\":201,\"message\":\"Created\"}");
         });
-    
+
     // 示例 5: 订单列表 API（时间范围筛选）
     api.get("/api/orders")
         .pagination(PageParam().page(1).limit(20))
         .dateRange("start_date", "end_date")  // 时间范围
         .statusFilter({"pending", "paid", "shipped", "completed", "cancelled"}, "pending")
         .handle([](const HttpRequest& req) -> HttpResponse {
+            (void)req;
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
-    
+
     // 示例 6: 日志查询 API
     api.get("/api/logs")
         .pagination(PageParam().page(1).limit(100))
         .dateRange("start_time", "end_time")
         .search(SearchParam())
         .handle([](const HttpRequest& req) -> HttpResponse {
+            (void)req;
             return HttpResponse(200).json("{\"code\":200,\"message\":\"Success\"}");
         });
     

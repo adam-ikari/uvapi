@@ -16,10 +16,6 @@ static HttpResponse badRequest(const std::string& message) {
     return HttpResponse(400).json(restful::JSON::error(message));
 }
 
-static HttpResponse ok(const std::string& message) {
-    return HttpResponse(200).json(restful::JSON::success(message));
-}
-
 // 文件上传处理器
 HttpResponse handleUpload(const HttpRequest& req) {
     // 检查 Content-Type
@@ -77,7 +73,7 @@ HttpResponse handleUpload(const HttpRequest& req) {
         cJSON* file_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(file_obj, "filename", file.filename.c_str());
         cJSON_AddStringToObject(file_obj, "content_type", file.content_type.c_str());
-        cJSON_AddNumberToObject(file_obj, "size", (double)file.size);
+        cJSON_AddNumberToObject(file_obj, "size", static_cast<double>(file.size));
         cJSON_AddItemToArray(files_json, file_obj);
     }
     cJSON_AddItemToObject(root, "files", files_json);
@@ -95,6 +91,7 @@ HttpResponse handleUpload(const HttpRequest& req) {
 
 // 简单的 HTML 上传页面
 HttpResponse handleUploadPage(const HttpRequest& req) {
+    (void)req;
     std::string html = R"(
 <!DOCTYPE html>
 <html>
