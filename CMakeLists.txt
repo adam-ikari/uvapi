@@ -326,4 +326,27 @@ target_link_libraries(test_declarative_dsl_auto_parse
 # 添加测试用例
 add_test(NAME declarative_dsl_auto_parse_test COMMAND test_declarative_dsl_auto_parse)
 
+# ResponseBuilder 单元测试
+add_executable(test_response_builder
+    test/unit/test_response_builder.cpp
+    src/framework_uvhttp.cpp
+)
+
+target_link_libraries(test_response_builder
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+add_test(NAME response_builder_test COMMAND test_response_builder)
+
 # 编译选项已在全局设置 CMAKE_CXX_FLAGS 中定义
