@@ -8,6 +8,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 # 设置分配器类型
 set(UVHTTP_ALLOCATOR_TYPE 1 CACHE STRING "Allocator type: 0=system, 1=mimalloc, 2=custom")
 
+# 覆盖 uvhttp 的配置选项（启用静态文件服务支持）
+set(BUILD_WITH_STATIC_FILES ON CACHE BOOL "Enable static file service support" FORCE)
+
 # 编译警告选项
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wshadow -Wold-style-cast")
