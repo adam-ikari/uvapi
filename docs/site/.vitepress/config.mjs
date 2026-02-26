@@ -17,6 +17,7 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Quick Start', link: '/guide/quick-start' },
+          { text: 'Routing', link: '/guide/routing' },
           { text: 'Request DSL', link: '/guide/request-dsl' },
           { text: 'Response DSL', link: '/guide/response-dsl' },
           { text: 'JSON Usage', link: '/guide/json-usage' }
@@ -58,6 +59,7 @@ export default defineConfig({
           text: 'Guide',
           items: [
             { text: 'Quick Start', link: '/guide/quick-start' },
+            { text: 'Routing', link: '/guide/routing' },
             { text: 'Request DSL', link: '/guide/request-dsl' },
             { text: 'Response DSL', link: '/guide/response-dsl' },
             { text: 'JSON Usage', link: '/guide/json-usage' }
