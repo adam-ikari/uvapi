@@ -14,6 +14,8 @@ A high-performance, type-safe RESTful framework built on top of UVHTTP, providin
 
 ## Quick Start
 
+### Basic Server
+
 ```cpp
 #include "framework.h"
 using namespace uvapi;
@@ -34,6 +36,37 @@ int main() {
     uv_loop_close(loop);
     return 0;
 }
+```
+
+### Using Response DSL
+
+```cpp
+struct User {
+    int64_t id;
+    std::string name;
+    std::string email;
+    
+    std::string toJson() const {
+        return JSON::Object()
+            .set("id", id)
+            .set("name", name)
+            .set("email", email)
+            .toCompactString();
+    }
+};
+
+auto create_user_handler = [](const HttpRequest& req) -> HttpResponse {
+    User user = {1, "Alice", "alice@example.com"};
+    
+    // 使用声明式 Response DSL
+    return ResponseBuilder::created()
+        .message("User created successfully")
+        .requestId("12345")
+        .data(user);  // 自动序列化
+};
+
+// 或者使用工厂函数
+HttpResponse resp = makeSuccessResponse().data(user);
 ```
 
 ## Building

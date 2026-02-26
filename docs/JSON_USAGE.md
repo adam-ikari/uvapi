@@ -221,12 +221,115 @@ std::string compact = JSON::Object()
 {"code":200,"message":"Success"}
 ```
 
+## JSON 在 Response DSL 中的应用
+
+### 自动序列化
+
+Response DSL 支持自动检测和调用对象的 `toJson()` 方法：
+
+```cpp
+struct User {
+    int64_t id;
+    std::string name;
+    std::string email;
+    
+    std::string toJson() const {
+        return JSON::Object()
+            .set("id", id)
+            .set("name", name)
+            .set("email", email)
+            .toCompactString();
+    }
+};
+
+// 自动序列化
+HttpResponse resp = ResponseBuilder::ok()
+    .data(user);  // 自动调用 user.toJson()
+```
+
+### Response DSL 中的 JSON 构建
+
+Response DSL 内部使用 JSON::Object 构建响应体：
+
+```cpp
+// 自动构建的响应格式
+{
+  "code": "200",
+  "message": "Success",
+  "data": { /* user.toJson() 的结果 */ }
+}
+```
+
+### 手动构建 JSON 响应
+
+如果需要更精细的控制，可以手动构建 JSON：
+
+```cpp
+auto handler = [](const HttpRequest& req) -> HttpResponse {
+    JSON::Object body;
+    body.set("code", 200)
+        .set("message", "Success")
+        .set("data", JSON::Object()
+            .set("id", 1)
+            .set("name", "Alice"));
+    
+    HttpResponse resp;
+    resp.body = body.toString();
+    resp.headers["Content-Type"] = "application/json";
+    return resp;
+};
+```
+
+### 数组序列化
+
+```cpp
+struct Product {
+    int64_t id;
+    std::string name;
+    
+    std::string toJson() const {
+        return JSON::Object()
+            .set("id", id)
+            .set("name", name)
+            .toCompactString();
+    }
+};
+
+std::vector<Product> products = {
+    {1, "Product A"},
+    {2, "Product B"}
+};
+
+// 自动序列化数组
+HttpResponse resp = ResponseBuilder::ok()
+    .data(products);  // 自动调用每个 product.toJson()
+```
+
+### 错误处理
+
+```cpp
+struct BadModel {
+    std::string toJson() const {
+        return "";  // 返回空字符串（错误）
+    }
+};
+
+BadModel model;
+HttpResponse resp = ResponseBuilder::ok().data(model);
+
+// 自动捕获异常，返回错误响应
+// resp.status_code == 500
+// resp.body == "{\"code\":\"500\",\"message\":\"Serialization error\",\"data\":\"{}}"
+```
+
 ## 注意事项
 
 1. **内存管理**：JSON 类使用智能指针自动管理内存，无需手动调用 cJSON_Delete
 2. **类型安全**：确保使用正确的类型，避免隐式转换
 3. **空值检查**：始终检查 isValid() 方法，特别是在嵌套对象中
 4. **字符串转义**：JSON 库会自动处理字符串转义
+5. **toJson() 方法**：确保数据模型实现 toJson() 方法以支持自动序列化
+6. **错误处理**：在 toJson() 方法中处理异常，返回有效的 JSON 字符串
 
 ## 示例程序
 
