@@ -152,6 +152,20 @@ add_executable(json_usage_example
     src/multipart.cpp
 )
 
+# Schema 复用示例
+add_executable(schema_reuse_example
+    examples/schema_reuse_example.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+# Response Builder 外部声明示例
+add_executable(response_builder_external
+    examples/response_builder_external.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
 # 性能测试服务器
 add_executable(benchmark_server
     examples/benchmark_server.cpp
@@ -191,6 +205,36 @@ target_link_libraries(declarative_dsl_auto_parse
 )
 
 target_link_libraries(json_usage_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(schema_reuse_example
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+target_link_libraries(response_builder_external
     -Wl,--start-group
     uvhttp
     uv

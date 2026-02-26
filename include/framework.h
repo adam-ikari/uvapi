@@ -3024,6 +3024,396 @@ private:
     std::string extractBearerToken(const std::string& auth_header);
 };
 
+// ========== 声明式 Response DSL ==========
+
+/**
+ * @brief 声明式 Response DSL
+ * 
+ * 风格与 Request DSL 统一，使用流式链式 API 构建响应
+ * 
+ * 示例：
+ * Response::ok()
+ *     .code(200)
+ *     .message("Success")
+ *     .data("user", user_obj)
+ *     .build();
+ */
+class Response {
+private:
+    HttpResponse response_;
+    
+    // 声明 ResponseBuilder 为友元类
+    friend class ResponseBuilder;
+    
+public:
+    // ========== 构造方法 ==========
+    
+    Response() = default;
+    
+    explicit Response(int status_code) {
+        response_.status_code = status_code;
+    }
+    
+    // ========== 转换为 HttpResponse ==========
+    
+    // 隐式转换
+    operator HttpResponse() const {
+        return response_;
+    }
+    
+    // 显式转换
+    HttpResponse toHttpResponse() const {
+        return response_;
+    }
+    
+    // ========== 访问器 ==========
+    
+    int status() const { return response_.status_code; }
+    const std::string& body() const { return response_.body; }
+    const std::map<std::string, std::string>& headers() const { return response_.headers; }
+    
+    // ========== 修改器（仅用于高级场景） ==========
+    
+    Response& setStatus(int status) {
+        response_.status_code = status;
+        return *this;
+    }
+    
+    Response& setBody(const std::string& body) {
+        response_.body = body;
+        return *this;
+    }
+    
+    Response& setHeader(const std::string& key, const std::string& value) {
+        response_.headers[key] = value;
+        return *this;
+    }
+};
+
+// ========== Response 构建器 - 支持在 handler 之前声明 Response 结构 ==========
+
+/**
+ * @brief Response 构建器 - 支持在 handler 之前声明 Response 结构
+ * 
+ * 类似于 RouteBuilder，允许在 handler 函数外部声明 Response 的结构
+ * 
+ * 设计原则：
+ * 1. 零全局变量 - 使用函数返回局部对象，避免 static 全局变量
+ * 2. 声明式风格 - 描述响应属性（what），而非执行动作（how）
+ * 3. 类型安全 - 编译期类型检查，自动序列化
+ * 4. 错误处理 - 捕获异常，返回错误响应
+ * 5. 性能优化 - 链式调用，减少拷贝
+ * 
+ * 示例（纯粹的声明式风格）：
+ * 
+ * 描述响应具有什么属性：
+ * - "status is 200" → .status(200)
+ * - "message is Success" → .message("Success")
+ * - "has cache-control no-cache" → .cacheControl("no-cache")
+ * - "has data user" → .data(user)
+ * 
+ * auto handler = [](const HttpRequest& req) -> HttpResponse {
+ *     User user = {1, "alice", "alice@example.com"};
+ *     return ResponseBuilder::created()
+ *         .message("User created successfully")
+ *         .requestId("12345")
+ *         .data(user)
+ *         .toHttpResponse();
+ * };
+ */
+class ResponseBuilder {
+private:
+    int status_code_;
+    std::string message_;
+    std::map<std::string, std::string> headers_;
+    mutable std::string pending_data_;  // 待序列化的数据
+    
+public:
+    ResponseBuilder(int code = 200, const std::string& msg = "Success")
+        : status_code_(code), message_(msg) {}
+    
+    // ========== 声明式方法（描述响应属性） ==========
+    
+    // 描述状态码
+    ResponseBuilder& status(int code) {
+        status_code_ = code;
+        return *this;
+    }
+    
+    // 描述消息
+    ResponseBuilder& message(const std::string& msg) {
+        message_ = msg;
+        return *this;
+    }
+    
+    // 描述头部
+    ResponseBuilder& header(const std::string& key, const std::string& value) {
+        headers_[key] = value;
+        return *this;
+    }
+    
+    // 描述 Content-Type
+    ResponseBuilder& contentType(const std::string& type) {
+        headers_["Content-Type"] = type;
+        return *this;
+    }
+    
+    // 描述 Cache-Control
+    ResponseBuilder& cacheControl(const std::string& value) {
+        headers_["Cache-Control"] = value;
+        return *this;
+    }
+    
+    // 描述请求 ID（常用头部，提供便捷方法）
+    ResponseBuilder& requestId(const std::string& id) {
+        headers_["X-Request-ID"] = id;
+        return *this;
+    }
+    
+    // 描述追踪 ID（常用头部，提供便捷方法）
+    ResponseBuilder& traceId(const std::string& id) {
+        headers_["X-Trace-ID"] = id;
+        return *this;
+    }
+    
+    // ========== 快速构造方法 ==========
+    
+    static ResponseBuilder ok() {
+        return ResponseBuilder(200, "Success");
+    }
+    
+    static ResponseBuilder ok(const std::string& message) {
+        return ResponseBuilder(200, message);
+    }
+    
+    static ResponseBuilder created() {
+        return ResponseBuilder(201, "Created");
+    }
+    
+    static ResponseBuilder created(const std::string& message) {
+        return ResponseBuilder(201, message);
+    }
+    
+    static ResponseBuilder accepted() {
+        return ResponseBuilder(202, "Accepted");
+    }
+    
+    static ResponseBuilder noContent() {
+        return ResponseBuilder(204, "No Content");
+    }
+    
+    static ResponseBuilder badRequest() {
+        return ResponseBuilder(400, "Bad Request");
+    }
+    
+    static ResponseBuilder badRequest(const std::string& message) {
+        return ResponseBuilder(400, message);
+    }
+    
+    static ResponseBuilder unauthorized() {
+        return ResponseBuilder(401, "Unauthorized");
+    }
+    
+    static ResponseBuilder unauthorized(const std::string& message) {
+        return ResponseBuilder(401, message);
+    }
+    
+    static ResponseBuilder forbidden() {
+        return ResponseBuilder(403, "Forbidden");
+    }
+    
+    static ResponseBuilder forbidden(const std::string& message) {
+        return ResponseBuilder(403, message);
+    }
+    
+    static ResponseBuilder notFound() {
+        return ResponseBuilder(404, "Not Found");
+    }
+    
+    static ResponseBuilder notFound(const std::string& message) {
+        return ResponseBuilder(404, message);
+    }
+    
+    static ResponseBuilder methodNotAllowed() {
+        return ResponseBuilder(405, "Method Not Allowed");
+    }
+    
+    static ResponseBuilder conflict() {
+        return ResponseBuilder(409, "Conflict");
+    }
+    
+    static ResponseBuilder internalServerError() {
+        return ResponseBuilder(500, "Internal Server Error");
+    }
+    
+    static ResponseBuilder serviceUnavailable() {
+        return ResponseBuilder(503, "Service Unavailable");
+    }
+    
+    // ========== 数据设置（声明式风格） ==========
+    
+    // 描述单个对象数据
+    template<typename T>
+    auto data(const T& instance) -> typename std::enable_if<
+        std::is_same<decltype(std::declval<T>().toJson()), std::string>::value,
+        ResponseBuilder&
+    >::type {
+        // 错误处理：捕获 toJson() 可能的异常
+        try {
+            std::string json_str = instance.toJson();
+            if (json_str.empty()) {
+                // toJson() 返回空字符串，可能是错误
+                status_code_ = 500;
+                message_ = "Failed to serialize object";
+                pending_data_ = "{}";
+            } else {
+                pending_data_ = json_str;
+            }
+        } catch (...) {
+            // 捕获所有异常，返回错误响应
+            status_code_ = 500;
+            message_ = "Serialization error";
+            pending_data_ = "{}";
+        }
+        return *this;
+    }
+    
+    // 描述数组数据
+    template<typename T>
+    auto data(const std::vector<T>& instances) -> typename std::enable_if<
+        std::is_same<decltype(std::declval<T>().toJson()), std::string>::value,
+        ResponseBuilder&
+    >::type {
+        // 错误处理
+        try {
+            JSON::Array arr;
+            for (const auto& instance : instances) {
+                arr.append(instance.toJson());
+            }
+            pending_data_ = arr.toString();
+        } catch (...) {
+            status_code_ = 500;
+            message_ = "Serialization error";
+            pending_data_ = "[]";
+        }
+        return *this;
+    }
+    
+    // 描述字符串数据
+    ResponseBuilder& data(const std::string& json_data) {
+        pending_data_ = json_data;
+        return *this;
+    }
+    
+    // ========== 构建 Response 对象 ==========
+    
+    // 私有方法：构建带数据的 Response（消除代码冗余）
+    Response buildWithData(const std::string& data_str) const {
+        Response resp;
+        resp.response_.status_code = status_code_;
+        
+        // 构建响应体
+        resp.response_.body = JSON::Object()
+            .set("code", std::to_string(status_code_))
+            .set("message", message_)
+            .set("data", data_str)
+            .toString();
+        
+        // 设置头部
+        resp.response_.headers["Content-Type"] = "application/json";
+        for (const auto& h : headers_) {
+            if (h.first != "Content-Type") {
+                resp.response_.headers[h.first] = h.second;
+            }
+        }
+        
+        return resp;
+    }
+    
+    // 构建 Response（const 版本）
+    Response build() const {
+        if (!pending_data_.empty()) {
+            return buildWithData(pending_data_);
+        }
+        // 构建基础响应
+        Response resp;
+        resp.response_.status_code = status_code_;
+        resp.response_.body = JSON::Object()
+            .set("code", std::to_string(status_code_))
+            .set("message", message_)
+            .toString();
+        for (const auto& h : headers_) {
+            resp.response_.headers[h.first] = h.second;
+        }
+        return resp;
+    }
+    
+    // 转换为 HttpResponse（隐式转换，可自动调用）
+    operator HttpResponse() const {
+        return build();
+    }
+    
+    // 显式转换（与隐式转换功能相同，保持一致性）
+    HttpResponse toHttpResponse() const {
+        return build();
+    }
+    
+    // 获取内部状态（用于高级操作）
+    int getStatus() const { return status_code_; }
+    const std::string& getMessage() const { return message_; }
+    const std::map<std::string, std::string>& getHeaders() const { return headers_; }
+};
+
+// ========== 响应模板工厂函数（避免 static 全局变量） ==========
+
+/**
+ * @brief 创建成功响应模板
+ * 
+ * 使用函数返回局部对象，避免 static 全局变量
+ * 符合零全局变量原则
+ * 使用声明式风格（描述响应属性）
+ */
+inline ResponseBuilder makeSuccessResponse() {
+    return ResponseBuilder::ok()
+        .cacheControl("no-cache")
+        .contentType("application/json");
+}
+
+/**
+ * @brief 创建创建用户响应模板
+ */
+inline ResponseBuilder makeCreatedResponse() {
+    return ResponseBuilder::created()
+        .message("User created successfully")
+        .contentType("application/json");
+}
+
+/**
+ * @brief 创建错误响应模板
+ */
+inline ResponseBuilder makeErrorResponse() {
+    return ResponseBuilder::badRequest()
+        .contentType("application/json");
+}
+
+/**
+ * @brief 创建未找到响应模板
+ */
+inline ResponseBuilder makeNotFoundResponse() {
+    return ResponseBuilder::notFound()
+        .contentType("application/json");
+}
+
+/**
+ * @brief 创建列表响应模板（带分页信息）
+ */
+inline ResponseBuilder makeListResponse() {
+    return ResponseBuilder::ok()
+        .message("List retrieved successfully")
+        .cacheControl("private, max-age=60")
+        .contentType("application/json");
+}
+
 } // namespace restful
 
 } // namespace uvapi
