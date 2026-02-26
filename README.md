@@ -89,6 +89,32 @@ UVAPI requires:
 - xxhash (as a git submodule)
 - uthash (as a git submodule)
 
+## Documentation
+
+Full documentation is available at: [https://uvapi.dev](https://uvapi.dev)
+
+### Documentation Site
+
+The documentation website provides:
+- Quick start guide
+- Response DSL tutorial
+- API reference
+- Examples and best practices
+- Design philosophy
+- Bilingual support (English and Chinese)
+
+### Local Documentation
+
+To run the documentation site locally:
+
+```bash
+cd docs/site
+npm install
+npm run docs:dev
+```
+
+Visit http://localhost:5174/ to view the documentation.
+
 ## License
 
 MIT License

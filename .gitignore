@@ -6,6 +6,9 @@ dist/
 *.so
 *.dylib
 
+# Exception: docs/dist is for GitHub Pages
+!docs/dist/
+
 # CMake
 CMakeCache.txt
 CMakeFiles/
