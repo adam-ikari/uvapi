@@ -41,7 +41,8 @@ int main() {
     uv_loop_t* loop = uv_default_loop();
     server::Server server(loop);
     
-    server.addRoute("/hello", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
+    // 简洁的 API
+    server.get("/hello", [](const HttpRequest& req) -> HttpResponse {
         HttpResponse resp(200);
         resp.body = "Hello, UVAPI!";
         return resp;
@@ -52,6 +53,36 @@ int main() {
     uv_loop_close(loop);
     return 0;
 }
+```
+
+### HTTP 方法
+
+UVAPI 提供了简洁的 HTTP 方法 API：
+
+```cpp
+// GET 请求
+server.get("/users", handler);
+
+// POST 请求
+server.post("/users", handler);
+
+// PUT 请求
+server.put("/users/:id", handler);
+
+// DELETE 请求
+server.del("/users/:id", handler);
+
+// PATCH 请求
+server.patch("/users/:id", handler);
+
+// HEAD 请求
+server.head("/users", handler);
+
+// OPTIONS 请求
+server.options("/users", handler);
+
+// 或者使用通用方法
+server.addRoute("/custom", HttpMethod::GET, handler);
 ```
 
 ### 编译和运行

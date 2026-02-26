@@ -7,7 +7,7 @@ UVAPI is a high-performance, type-safe RESTful framework built on top of UVHTTP,
 ### Installation
 
 ```bash
-git clone https://github.com/adami-kari/uvapi.git
+git clone https://github.com/adam-ikari/uvapi.git
 cd uvapi
 mkdir build && cd build
 cmake ..
@@ -26,7 +26,7 @@ int main() {
     uv_loop_t* loop = uv_default_loop();
     server::Server server(loop);
     
-    server.addRoute("/", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
+    server.get("/", [](const HttpRequest& req) -> HttpResponse {
         HttpResponse resp(200);
         resp.body = "Hello, World!";
         return resp;
@@ -49,8 +49,9 @@ int main() {
 
 ## Documentation
 
-- [Quick Start](/guide/quick-start.md) - Get started in 5 minutes
-- [Response DSL](/guide/response-dsl.md) - Learn declarative response building
+- [Quick Start](/guide/quick-start) - Get started in 5 minutes
+- [Response DSL](/guide/response-dsl) - Learn declarative response building
+- [JSON Usage](/guide/json-usage) - Learn JSON serialization
 - [API Reference](/api/) - Complete API documentation
 - [Examples](/examples/) - Practical usage examples
 - [Design](/design/) - Design philosophy and principles

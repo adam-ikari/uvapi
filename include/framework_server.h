@@ -38,6 +38,35 @@ public:
     void addRoute(const std::string& path, HttpMethod method, 
                   std::function<HttpResponse(const HttpRequest&)> handler);
     
+    // 便捷路由注册方法
+    void get(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::GET, handler);
+    }
+    
+    void post(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::POST, handler);
+    }
+    
+    void put(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::PUT, handler);
+    }
+    
+    void del(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::DELETE, handler);
+    }
+    
+    void patch(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::PATCH, handler);
+    }
+    
+    void head(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::HEAD, handler);
+    }
+    
+    void options(const std::string& path, std::function<HttpResponse(const HttpRequest&)> handler) {
+        addRoute(path, HttpMethod::OPTIONS, handler);
+    }
+    
     // 添加中间件（使用 UVHTTP 的中间件系统）
     void addMiddleware(uvhttp_middleware_t middleware);
     
