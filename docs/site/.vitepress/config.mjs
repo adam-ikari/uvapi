@@ -8,7 +8,7 @@ export default defineConfig({
   ignoreDeadLinks: true,
 
   // GitHub Pages 基础路径
-  base: '/',
+  base: '/uvapi/',
 
   locales: {
     root: {
