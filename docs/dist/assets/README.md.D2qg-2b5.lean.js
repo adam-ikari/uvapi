@@ -1,1 +1,0 @@
-import{_ as s,o as e,c as i,ae as n}from"./chunks/framework.BD5WkVZR.js";const k=JSON.parse('{"title":"UVAPI 文档网站","description":"","frontmatter":{},"headers":[],"relativePath":"README.md","filePath":"README.md"}'),t={name:"README.md"};function l(o,a,h,r,p,d){return e(),i("div",null,[...a[0]||(a[0]=[n("",28)])])}const u=s(t,[["render",l]]);export{k as __pageData,u as default};
