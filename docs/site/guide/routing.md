@@ -1,178 +1,27 @@
 # 路由指南
 
-本文档详细介绍 UVAPI 的路由系统，包括路由定义、路径参数、路由分组等。
+本文档详细介绍 UVAPI 的声明式路由系统，符合框架的声明式设计哲学。
 
-## 基础路由
+## 设计哲学
 
-### 简洁方法
+UVAPI 采用**声明式 DSL** 设计，强调：
+- **描述"是什么"**而非"怎么做"
+- **自动解析和验证**参数
+- **类型安全**的参数访问
+- **链式调用**的清晰语法
 
-UVAPI 提供简洁的 HTTP 方法快捷方式：
+## 路由定义
+
+### 声明式路由
+
+使用 `ApiBuilder` 进行声明式路由定义：
 
 ```cpp
 #include "framework.h"
+#include "declarative_dsl.h"
 
 using namespace uvapi;
 using namespace uvapi::restful;
-
-int main() {
-    uv_loop_t* loop = uv_default_loop();
-    server::Server server(loop);
-    
-    // GET 请求
-    server.get("/users", [](const HttpRequest& req) -> HttpResponse {
-        return ResponseBuilder(200).success();
-    });
-    
-    // POST 请求
-    server.post("/users", [](const HttpRequest& req) -> HttpResponse {
-        return ResponseBuilder(201).success("Created");
-    });
-    
-    // PUT 请求
-    server.put("/users/:id", [](const HttpRequest& req) -> HttpResponse {
-        return ResponseBuilder(200).success("Updated");
-    });
-    
-    // DELETE 请求
-    server.del("/users/:id", [](const HttpRequest& req) -> HttpResponse {
-        return ResponseBuilder(200).success("Deleted");
-    });
-    
-    // PATCH 请求
-    server.patch("/users/:id", [](const HttpRequest& req) -> HttpResponse {
-        return ResponseBuilder(200).success("Patched");
-    });
-    
-    // HEAD 请求
-    server.head("/users", [](const HttpRequest& req) -> HttpResponse {
-        return HttpResponse(200);
-    });
-    
-    // OPTIONS 请求
-    server.options("/users", [](const HttpRequest& req) -> HttpResponse {
-        return HttpResponse(200)
-            .header("Allow", "GET, POST, PUT, DELETE");
-    });
-    
-    server.listen("0.0.0.0", 8080);
-    uv_run(loop, UV_RUN_DEFAULT);
-    uv_loop_close(loop);
-    return 0;
-}
-```
-
-### 通用方法
-
-使用 `addRoute` 方法注册任意 HTTP 方法：
-
-```cpp
-server.addRoute("/users", HttpMethod::GET, handler);
-server.addRoute("/users", HttpMethod::POST, handler);
-server.addRoute("/users/:id", HttpMethod::PUT, handler);
-server.addRoute("/users/:id", HttpMethod::DELETE, handler);
-```
-
-## 路径参数
-
-### 基本用法
-
-使用 `:param` 语法定义路径参数：
-
-```cpp
-// 单个路径参数
-server.get("/users/:id", [](const HttpRequest& req) -> HttpResponse {
-    int64_t id = req.path<int64_t>("id");
-    return ResponseBuilder(200).success().set("id", id);
-});
-
-// 多个路径参数
-server.get("/users/:userId/posts/:postId", [](const HttpRequest& req) -> HttpResponse {
-    int64_t user_id = req.path<int64_t>("userId");
-    int64_t post_id = req.path<int64_t>("postId");
-    
-    return ResponseBuilder(200).success()
-        .set("user_id", user_id)
-        .set("post_id", post_id);
-});
-```
-
-### 带默认值
-
-```cpp
-server.get("/items/:id", [](const HttpRequest& req) -> HttpResponse {
-    // 如果参数不存在，返回默认值 0
-    int64_t id = req.path<int64_t>("id", 0);
-    return ResponseBuilder(200).success().set("id", id);
-});
-```
-
-### 类型转换
-
-支持自动类型转换：
-
-```cpp
-// 字符串（默认）
-std::string name = req.path<std::string>("name");
-
-// 整数
-int num = req.path<int>("num");
-
-// 64位整数
-int64_t id = req.path<int64_t>("id");
-
-// 浮点数
-double price = req.path<double>("price");
-
-// 布尔值
-bool active = req.path<bool>("active");
-```
-
-## 查询参数
-
-### 获取查询参数
-
-```cpp
-server.get("/search", [](const HttpRequest& req) -> HttpResponse {
-    // 获取查询参数
-    std::string q = req.query<std::string>("q");
-    int page = req.query<int>("page", 1);
-    int limit = req.query<int>("limit", 10);
-    
-    return ResponseBuilder(200).success()
-        .set("query", q)
-        .set("page", page)
-        .set("limit", limit);
-});
-```
-
-### 访问 URL
-
-```
-GET /search?q=uvapi&page=2&limit=20
-```
-
-响应：
-
-```json
-{
-  "code": "0",
-  "data": {
-    "query": "uvapi",
-    "page": 2,
-    "limit": 20
-  }
-}
-```
-
-## 声明式路由
-
-使用 `ApiBuilder` 和 `ApiDefinition` 进行声明式路由定义。
-
-### 基本用法
-
-```cpp
-#include "declarative_dsl.h"
-
 using namespace uvapi::declarative;
 
 int main() {
@@ -181,12 +30,16 @@ int main() {
     
     ApiBuilder api;
     
-    // 定义 GET /users/:id
-    api.get("/users/:id")
-        .pathParam<int64_t>("id", Required<int64_t>())
-        .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
-            int64_t id = std::stoll(params.at("id"));
-            return ResponseBuilder(200).success().set("id", id);
+    // GET /users
+    api.get("/users")
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return ResponseBuilder(200).success();
+        });
+    
+    // POST /users
+    api.post("/users")
+        .handle([](const HttpRequest& req) -> HttpResponse {
+            return ResponseBuilder(201).success("Created");
         });
     
     server.listen("0.0.0.0", 8080);
@@ -196,20 +49,105 @@ int main() {
 }
 ```
 
-### 参数验证
+## 路径参数声明
 
-声明式路由支持自动参数验证：
+### 声明式定义路径参数
+
+使用 `pathParam()` 声明路径参数，框架自动解析和验证：
+
+```cpp
+// 单个路径参数
+api.get("/users/:id")
+    .pathParam<int64_t>("id", Required<int64_t>())
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        int64_t id = std::stoll(params.at("id"));
+        return ResponseBuilder(200).success().set("id", id);
+    });
+
+// 多个路径参数
+api.get("/users/:userId/posts/:postId")
+    .pathParam<int64_t>("userId", Required<int64_t>())
+    .pathParam<int64_t>("postId", Required<int64_t>())
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        int64_t user_id = std::stoll(params.at("userId"));
+        int64_t post_id = std::stoll(params.at("postId"));
+        
+        return ResponseBuilder(200).success()
+            .set("user_id", user_id)
+            .set("post_id", post_id);
+    });
+```
+
+### 路径参数验证
+
+```cpp
+api.get("/items/:id")
+    .pathParam<int64_t>("id", Required<int64_t>())
+        .range(1, 1000000)  // ID 范围：1 ~ 1000000
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        int64_t id = std::stoll(params.at("id"));
+        return ResponseBuilder(200).success().set("id", id);
+    });
+```
+
+### 参数类型
+
+支持的路径参数类型：
+
+```cpp
+// 字符串
+.pathParam<std::string>("name", Required<std::string>())
+
+// 整数
+.pathParam<int>("page", Required<int>())
+
+// 64位整数
+.pathParam<int64_t>("id", Required<int64_t>())
+
+// 浮点数
+.pathParam<double>("price", Required<double>())
+
+// 布尔值
+.pathParam<bool>("active", Required<bool>())
+```
+
+## 查询参数声明
+
+### 声明式定义查询参数
+
+使用 `param()` 声明查询参数：
+
+```cpp
+api.get("/search")
+    .param<std::string>("q", OptionalWithDefault<std::string>(""))
+    .param<int>("page", OptionalWithDefault<int>(1))
+    .param<int>("limit", OptionalWithDefault<int>(10))
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        std::string q = params.at("q");
+        int page = std::stoi(params.at("page"));
+        int limit = std::stoi(params.at("limit"));
+        
+        return ResponseBuilder(200).success()
+            .set("query", q)
+            .set("page", page)
+            .set("limit", limit);
+    });
+```
+
+访问 URL：`GET /search?q=uvapi&page=2&limit=20`
+
+### 查询参数验证
 
 ```cpp
 api.get("/users")
     .param<int>("page", OptionalWithDefault<int>(1))
-        .range(1, 1000000)         // 页码范围：1 ~ 1000000
+        .range(1, 1000000)         // 页码范围
     .param<int>("limit", OptionalWithDefault<int>(10))
         .range(1, 100)             // 每页最多 100 条
     .param<std::string>("status", OptionalWithDefault<std::string>(""))
         .oneOf({"active", "inactive", "pending"})  // 枚举值
     .param<std::string>("email", OptionalWithDefault<std::string>(""))
-        .pattern("^[A-Za-z0-9+_.-]+@(.+)$")  // 正则验证
+        .pattern("^[A-Za-z0-9+_.-]+@(.+)$")  // 正则表达式
     .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
         // 参数已验证通过
         return ResponseBuilder(200).success();
@@ -228,9 +166,48 @@ api.get("/users")
 }
 ```
 
+## 便捷方法
+
+### 分页参数
+
+```cpp
+api.get("/users")
+    .pagination(PageParam().page(1).limit(20))
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        int page = std::stoi(params.at("page"));
+        int limit = std::stoi(params.at("limit"));
+        return ResponseBuilder(200).success();
+    });
+```
+
+### 搜索参数
+
+```cpp
+api.get("/users")
+    .search(SearchParam(""))
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        std::string search = params.at("search");
+        return ResponseBuilder(200).success().set("search", search);
+    });
+```
+
+### 排序参数
+
+```cpp
+api.get("/users")
+    .sort(SortParam("created_at", "desc", {"id", "name", "created_at"}))
+    .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
+        std::string sort = params.at("sort");
+        std::string order = params.at("order");
+        return ResponseBuilder(200).success()
+            .set("sort", sort)
+            .set("order", order);
+    });
+```
+
 ## RESTful API 示例
 
-完整的 RESTful API 示例：
+完整的 RESTful API 示例，完全使用声明式 DSL：
 
 ```cpp
 #include "framework.h"
@@ -271,23 +248,20 @@ int main() {
     api.get("/users")
         .pagination(PageParam().page(1).limit(10))
         .search(SearchParam(""))
+        .sort(SortParam("created_at", "desc"))
         .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) {
             int page = std::stoi(params.at("page"));
             int limit = std::stoi(params.at("limit"));
             std::string search = params.at("search");
+            std::string sort = params.at("sort");
+            std::string order = params.at("order");
             
-            // 构建响应
-            ResponseBuilder builder(200);
-            builder.success().set("page", page).set("limit", limit);
-            
-            // 添加用户列表
-            builder.add("users", JSON::Object()
-                .set("id", 1)
-                .set("name", "Alice")
-                .set("email", "alice@example.com")
-                .toJson());
-            
-            return builder;
+            return ResponseBuilder(200).success()
+                .set("page", page)
+                .set("limit", limit)
+                .set("search", search)
+                .set("sort", sort)
+                .set("order", order);
         });
     
     // GET /users/:id - 获取单个用户
@@ -306,7 +280,7 @@ int main() {
     
     // POST /users - 创建用户
     api.post("/users")
-        .handle([](const HttpRequest& req) {
+        .handle([](const HttpRequest& req) -> HttpResponse {
             // 解析请求体
             cJSON* json = cJSON_Parse(req.body.c_str());
             if (!json) {
@@ -389,15 +363,15 @@ int main() {
 ### 精确匹配
 
 ```cpp
-server.get("/users", handler);        // 只匹配 /users
-server.get("/users/profile", handler); // 只匹配 /users/profile
+api.get("/users", handler);        // 只匹配 /users
+api.get("/users/profile", handler); // 只匹配 /users/profile
 ```
 
 ### 路径参数
 
 ```cpp
-server.get("/users/:id", handler);              // 单个参数
-server.get("/users/:userId/posts/:postId", handler); // 多个参数
+api.get("/users/:id", handler);              // 单个参数
+api.get("/users/:userId/posts/:postId", handler); // 多个参数
 ```
 
 ### HTTP 方法区分
@@ -405,9 +379,9 @@ server.get("/users/:userId/posts/:postId", handler); // 多个参数
 相同路径，不同方法：
 
 ```cpp
-server.get("/users/:id", get_user);    // 获取用户
-server.put("/users/:id", update_user); // 更新用户
-server.del("/users/:id", delete_user); // 删除用户
+api.get("/users/:id", get_user);    // 获取用户
+api.put("/users/:id", update_user); // 更新用户
+api.del("/users/:id", delete_user); // 删除用户
 ```
 
 ## Next Steps
