@@ -196,65 +196,78 @@ field(string("name", offsetof(User, name))
 
 ### 使用 Schema
 
+**重要：只推荐使用 `req.parseBody<T>()` 方式，框架会自动处理解析和验证。**
+
 ```cpp
 #include "framework.h"
 
+// 在 handler 中使用 req.parseBody<T>()
 server.post("/users", [](const HttpRequest& req) -> HttpResponse {
-    // 解析请求体
-    CreateUserRequest create_req;
-    CreateUserRequest::Schema schema;
+    // 唯一推荐的方式：自动解析和验证请求体
+    auto create_req = req.parseBody<CreateUserRequest>();
     
-    if (!schema.fromJson(req.body, &create_req)) {
+    if (!create_req.hasValue()) {
         return ResponseBuilder(400).error("Invalid request body");
     }
     
-    // 验证
-    cJSON* json = cJSON_Parse(req.body.c_str());
-    std::string validation_error = schema.validate(json);
-    cJSON_Delete(json);
-    
-    if (!validation_error.empty()) {
-        return ResponseBuilder(400).error(validation_error);
-    }
-    
-    // 使用数据
+    // 使用解析后的数据
     return ResponseBuilder(201)
         .success("User created")
-        .set("name", create_req.name)
-        .set("email", create_req.email);
+        .set("name", create_req.value().name)
+        .set("email", create_req.value().email);
 });
 ```
 
-### 自动解析
+**为什么只推荐这种方式？**
 
-结合声明式 API 自动解析请求体：
+1. **清晰简洁**：一种方式，无歧义
+2. **自动验证**：自动调用 Schema 验证
+3. **类型安全**：编译期类型检查
+4. **统一风格**：所有 API 使用相同模式
+5. **最佳实践**：避免多种方式带来的混乱
+6. **零开销**：编译期优化，运行时无额外开销
+
+## 参数访问
+
+### 推荐方式：使用 operator[] 自动类型推导
 
 ```cpp
-api.post("/users")
-    .body<CreateUserRequest>(CreateUserRequest::Schema())
-    .handle([](const HttpRequest& req) {
-        // 请求体已自动解析和验证
-        return ResponseBuilder(201).success("User created");
-    });
+// 路径参数 - 自动类型推导
+auto id = req.pathParam["id"];           // 自动推导为 int64_t
+auto slug = req.pathParam["slug"];       // 自动推导为 string
+
+// 查询参数 - 自动类型推导
+auto page = req.queryParam["page"];      // 自动推导为 int
+auto limit = req.queryParam["limit"];    // 自动推导为 int
+auto status = req.queryParam["status"];  // 自动推导为 string
+auto active = req.queryParam["active"];  // 自动推导为 bool
 ```
 
-## 类型转换
+**优势**：
+- 简洁：不需要重复指定类型
+- 自动推导：根据变量声明自动选择正确的类型
+- 类型安全：编译期类型检查
+- 符合 DSL 哲学：描述"是什么"，而非"怎么做"
 
-Request DSL 支持自动类型转换：
+### 兼容方式：使用模板参数
 
 ```cpp
 // 字符串 → 整数
-int page = req.query<int>("page", 1);
+int page = req.queryParam.get<int>("page", 1);
 
 // 字符串 → 64位整数
-int64_t id = req.path<int64_t>("id");
+int64_t id = req.pathParam.get<int64_t>("id");
 
 // 字符串 → 浮点数
-double price = req.query<double>("price", 0.0);
+double price = req.queryParam.get<double>("price", 0.0);
 
 // 字符串 → 布尔值
-bool active = req.query<bool>("active", false);
+bool active = req.queryParam.get<bool>("active", false);
 ```
+
+**使用场景**：
+- 需要指定默认值时
+- 需要明确的类型转换时
 
 ## 错误处理
 

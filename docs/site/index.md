@@ -1,6 +1,6 @@
 # Welcome to UVAPI
 
-UVAPI is a high-performance, type-safe RESTful framework built on top of UVHTTP, providing modern C++11 abstractions for building HTTP/1.1 and WebSocket servers.
+UVAPI is a high-performance, type-safe RESTful framework built on top of UVHTTP, providing modern C++11 abstractions for building HTTP/1.1 servers.
 
 ## Quick Start
 

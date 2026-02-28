@@ -88,15 +88,15 @@ struct HttpRequest {
 
 ```cpp
 server.get("/users/:id", [](const HttpRequest& req) -> HttpResponse {
-    // 获取路径参数（自动类型转换）
-    int64_t user_id = req.path<int64_t>("id");
+    // 推荐方式：使用 operator[] 自动类型推导
+    auto id = req.pathParam["id"];  // 自动推导为 int64_t
     
-    // 带默认值
-    int64_t user_id = req.path<int64_t>("id", 0);
+    // 兼容方式：使用模板参数
+    optional<int64_t> user_id = req.pathParam.get<int64_t>("id");
     
     return ResponseBuilder(200)
         .success()
-        .set("user_id", user_id);
+        .set("user_id", id);
 });
 ```
 
@@ -104,16 +104,19 @@ server.get("/users/:id", [](const HttpRequest& req) -> HttpResponse {
 
 ```cpp
 server.get("/users", [](const HttpRequest& req) -> HttpResponse {
-    // 获取查询参数
-    std::string name = req.query<std::string>("name");
-    int page = req.query<int>("page", 1);
-    int limit = req.query<int>("limit", 10);
+    // 推荐方式：使用 operator[] 自动类型推导
+    auto page = req.queryParam["page"];       // 自动推导为 int
+    auto limit = req.queryParam["limit"];     // 自动推导为 int
+    auto status = req.queryParam["status"];   // 自动推导为 string
+    
+    // 兼容方式：使用模板参数
+    optional<std::string> name = req.queryParam.get<std::string>("name");
     
     return ResponseBuilder(200)
         .success()
-        .set("name", name)
         .set("page", page)
-        .set("limit", limit);
+        .set("limit", limit)
+        .set("status", status);
 });
 ```
 
@@ -131,30 +134,54 @@ server.get("/profile", [](const HttpRequest& req) -> HttpResponse {
 
 ### 解析请求体
 
+**重要：只推荐使用 `req.parseBody<T>()` 方式，框架会自动处理解析和验证。**
+
 ```cpp
 struct CreateUserRequest {
     std::string name;
     std::string email;
     int age;
     
-    static CreateUserRequest fromJson(const std::string& json) {
-        // 解析 JSON
-        CreateUserRequest req;
-        // ... 解析逻辑
-        return req;
-    }
+    class Schema : public uvapi::DslBodySchema<CreateUserRequest> {
+    public:
+        void define() override {
+            field(string("name", offsetof(CreateUserRequest, name))
+                .required()
+                .length(1, 100));
+            
+            field(string("email", offsetof(CreateUserRequest, email))
+                .required()
+                .pattern("^[A-Za-z0-9+_.-]+@(.+)$"));
+            
+            field(integer("age", offsetof(CreateUserRequest, age))
+                .optional()
+                .range(1, 150));
+        }
+    };
 };
 
 server.post("/users", [](const HttpRequest& req) -> HttpResponse {
-    // 解析请求体
-    CreateUserRequest create_req = req.parseBody<CreateUserRequest>();
+    // 唯一推荐的方式：自动解析和验证请求体
+    auto create_req = req.parseBody<CreateUserRequest>();
+    
+    if (!create_req.hasValue()) {
+        return ResponseBuilder(400).error("Invalid request body");
+    }
     
     return ResponseBuilder(201)
         .success("User created")
-        .set("name", create_req.name)
-        .set("email", create_req.email);
+        .set("name", create_req.value().name)
+        .set("email", create_req.value().email);
 });
 ```
+
+**为什么只推荐这种方式？**
+
+1. **清晰简洁**：一种方式，无歧义
+2. **自动验证**：自动调用 Schema 验证
+3. **类型安全**：编译期类型检查
+4. **统一风格**：所有 API 使用相同模式
+5. **最佳实践**：避免多种方式带来的混乱
 
 ## 参数声明
 

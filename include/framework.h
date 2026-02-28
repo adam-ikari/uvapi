@@ -1832,6 +1832,131 @@ struct HttpResponse {
     }
 };
 
+// 参数值包装类 - 支持自动类型推导
+class ParamValue {
+private:
+    std::string value_;
+    bool has_value_;
+    
+public:
+    ParamValue() : value_(""), has_value_(false) {}
+    explicit ParamValue(const std::string& value) : value_(value), has_value_(true) {}
+    
+    // 检查是否有值
+    bool hasValue() const { return has_value_; }
+    
+    // 检查是否为空
+    bool empty() const { return value_.empty(); }
+    
+    // 隐式类型转换运算符 - 支持自动类型推导
+    template<typename T>
+    operator T() const {
+        return parseValue<T>(value_);
+    }
+    
+private:
+    // 辅助函数：安全地解析字符串值为指定类型
+    template<typename T>
+    static T parseValue(const std::string& value) {
+        // 布尔类型（必须在整数类型之前检查）
+        if (std::is_same<T, bool>::value) {
+            std::string lower = value;
+            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+            return (lower == "true" || lower == "1" || lower == "yes" || lower == "on");
+        }
+        
+        // 字符串类型
+        if (std::is_same<T, std::string>::value) {
+            return value;
+        }
+        
+        // 整数类型（排除 bool，因为 bool 已经在上面处理了）
+        if (std::is_integral<T>::value) {
+            if (value.empty()) {
+                return T();
+            }
+            
+            errno = 0;
+            char* endptr = nullptr;
+            long long result = strtoll(value.c_str(), &endptr, 10);
+            
+            // 检查转换是否失败
+            if (endptr == value.c_str() || *endptr != '\0') {
+                return T();
+            }
+            
+            // 检查是否溢出
+            if (errno == ERANGE) {
+                return T();
+            }
+            
+            // 检查是否超出目标类型的范围
+            if (result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+                result > static_cast<long long>(std::numeric_limits<T>::max())) {
+                return T();
+            }
+            
+            return static_cast<T>(result);
+        }
+        
+        // 浮点数类型
+        if (std::is_floating_point<T>::value) {
+            if (value.empty()) {
+                return T();
+            }
+            
+            errno = 0;
+            char* endptr = nullptr;
+            double result = strtod(value.c_str(), &endptr);
+            
+            // 检查转换是否失败
+            if (endptr == value.c_str() || *endptr != '\0') {
+                return T();
+            }
+            
+            // 检查是否溢出
+            if (errno == ERANGE) {
+                return T();
+            }
+            
+            // 检查是否超出目标类型的范围
+            if (result < static_cast<double>(std::numeric_limits<T>::min()) ||
+                result > static_cast<double>(std::numeric_limits<T>::max())) {
+                return T();
+            }
+            
+            return static_cast<T>(result);
+        }
+        
+        // 默认返回默认构造的值
+        return T();
+    }
+};
+
+// 参数访问器
+class ParamAccessor {
+private:
+    const std::map<std::string, std::string>& params_;
+    
+public:
+    explicit ParamAccessor(const std::map<std::string, std::string>& params)
+        : params_(params) {}
+    
+    // operator[] - 返回 ParamValue，支持自动类型推导
+    ParamValue operator[](const std::string& key) const {
+        auto it = params_.find(key);
+        if (it != params_.end()) {
+            return ParamValue(it->second);
+        }
+        return ParamValue();  // 无值
+    }
+    
+    // 检查参数是否存在
+    bool has(const std::string& key) const {
+        return params_.find(key) != params_.end();
+    }
+};
+
 // HTTP 请求
 struct HttpRequest {
     HttpMethod method;
@@ -1842,34 +1967,9 @@ struct HttpRequest {
     std::string body;
     int64_t user_id;
     
-    // 路径参数（智能推断类型，Zero Exceptions）
-    // 使用 strtol/strtod + errno 替代 std::stoll/std::stod，避免异常抛出
-    
-    // 路径参数 - 返回 optional<T>
-    // 框架会自动应用 DSL 中声明的默认值
-    template<typename T>
-    optional<T> path(const std::string& key) const {
-        std::map<std::string, std::string>::const_iterator it = path_params.find(key);
-        if (it == path_params.end()) {
-            return optional<T>();  // 无值
-        }
-
-        const std::string& value = it->second;
-        return parseValue<T>(value);
-    }
-
-    // 查询参数 - 返回 optional<T>
-    // 框架会自动应用 DSL 中声明的默认值
-    template<typename T>
-    optional<T> query(const std::string& key) const {
-        std::map<std::string, std::string>::const_iterator it = query_params.find(key);
-        if (it == query_params.end()) {
-            return optional<T>();  // 无值
-        }
-
-        const std::string& value = it->second;
-        return parseValue<T>(value);
-    }
+    // 参数访问器（使用 operator[] 自动类型推导）
+    ParamAccessor pathParam{path_params};
+    ParamAccessor queryParam{query_params};
     
     // Request Body - 返回 optional<T>
     // 框架会根据 Schema 验证并解析 Body
@@ -1883,82 +1983,6 @@ struct HttpRequest {
     }
 
 private:
-    // 辅助函数：安全地解析字符串值为指定类型（返回 optional<T>）
-    template<typename T>
-    static optional<T> parseValue(const std::string& value) {
-        // 字符串类型
-        if (std::is_same<T, std::string>::value) {
-            return optional<T>(value);
-        }
-
-        // 布尔类型
-        if (std::is_same<T, bool>::value) {
-            bool result = (value == "true" || value == "1" || value == "yes" || value == "on");
-            return optional<T>(result);
-        }
-
-        // 整数类型（使用 strtol/strtoll + errno）
-        if (std::is_integral<T>::value) {
-            if (value.empty()) {
-                return optional<T>();
-            }
-
-            errno = 0;
-            char* endptr = nullptr;
-            long long result = strtoll(value.c_str(), &endptr, 10);
-
-            // 检查转换是否失败
-            if (endptr == value.c_str() || *endptr != '\0') {
-                return optional<T>();
-            }
-
-            // 检查是否溢出
-            if (errno == ERANGE) {
-                return optional<T>();
-            }
-
-            // 检查是否超出目标类型的范围
-            if (result < static_cast<long long>(std::numeric_limits<T>::min()) ||
-                result > static_cast<long long>(std::numeric_limits<T>::max())) {
-                return optional<T>();
-            }
-
-            return optional<T>(static_cast<T>(result));
-        }
-
-        // 浮点数类型（使用 strtod + errno）
-        if (std::is_floating_point<T>::value) {
-            if (value.empty()) {
-                return optional<T>();
-            }
-
-            errno = 0;
-            char* endptr = nullptr;
-            double result = strtod(value.c_str(), &endptr);
-
-            // 检查转换是否失败
-            if (endptr == value.c_str() || *endptr != '\0') {
-                return optional<T>();
-            }
-
-            // 残检查是否溢出
-            if (errno == ERANGE) {
-                return optional<T>();
-            }
-
-            // 检查是否超出目标类型的范围
-            if (result < static_cast<double>(std::numeric_limits<T>::min()) ||
-                result > static_cast<double>(std::numeric_limits<T>::max())) {
-                return optional<T>();
-            }
-
-            return optional<T>(static_cast<T>(result));
-        }
-
-        // 默认返回空 optional（类型不匹配）
-        return optional<T>();
-    }
-    
     // Body 反序列化
     template<typename T>
     T parseBody() const {

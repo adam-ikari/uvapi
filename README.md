@@ -1,6 +1,6 @@
 # UVAPI - C++ RESTful Low-Code Framework
 
-A high-performance, type-safe RESTful framework built on top of UVHTTP, providing modern C++11 abstractions for building HTTP/1.1 and WebSocket servers.
+A high-performance, type-safe RESTful framework built on top of UVHTTP, providing modern C++11 abstractions for building HTTP/1.1 servers.
 
 ## Features
 

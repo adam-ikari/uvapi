@@ -8,6 +8,17 @@ The Response DSL (Domain Specific Language) is designed to provide a declarative
 
 ## Design Philosophy
 
+### Core Principles
+
+UVAPI follows these core design principles:
+
+1. **Declarative Style** - Describe "what", not "how"
+2. **Automatic Parsing** - Framework automatically parses and converts parameters
+3. **Automatic Validation** - Framework validates parameters automatically
+4. **Single-Threaded Model** - Avoid locks and thread synchronization for simplicity
+5. **Type Inference** - Use templates and macros for compile-time type deduction
+6. **Recommended Way First** - Provide clear best practice guidelines
+
 ### 1. Declarative Style
 
 **Principle:** Describe "what" the response should be, not "how" to build it.
@@ -141,7 +152,137 @@ ResponseBuilder& data(const T& instance) {
 - Graceful degradation
 - Debugging support
 
-### 6. Method Chaining
+### 6. Single-Threaded Model
+
+**Principle:** Avoid locks and thread synchronization for simplicity and performance.
+
+**Implementation:**
+```cpp
+class ParamTypeRegistry {
+    // Static member storage (no thread_local needed)
+    static std::map<std::string, int> path_param_types_;
+    static std::map<std::string, int> query_param_types_;
+    
+public:
+    // Register parameter type at compile time
+    template<typename T>
+    static void registerPathParam(const std::string& name) {
+        path_param_types_[name] = static_cast<int>(DataTypeCode<T>::value);
+    }
+    
+    // Get parameter type
+    static int getPathParamType(const std::string& name) {
+        auto it = path_param_types_.find(name);
+        return it != path_param_types_.end() ? it->second : -1;
+    }
+};
+```
+
+**Benefits:**
+- Zero overhead (no locks)
+- Simple and reliable (no race conditions)
+- Easy to test (no threading issues)
+- Better performance (direct access)
+
+### 7. Parameter Type Inference
+
+**Principle:** Use template metaprogramming to deduce parameter types at compile time.
+
+**Implementation:**
+```cpp
+// Register type when defining route
+api.get("/users/:id")
+    .pathParam<int>("id")        // Register id as int type
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        // Compile-time type knowledge
+        int id = req.pathParam.get<int>("id");
+        return ResponseBuilder::ok().data(user);
+    });
+```
+
+**Automatic Type Inference Macros:**
+```cpp
+// Register types when defining
+api.get("/users/:id")
+    .pathParam<int>("id")        // Register id as int
+    .queryParam<int>("page")     // Register page as int
+    .queryParam<std::string>("name")  // Register name as string
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        // Automatic type deduction
+        int id = PATH_PARAM(req, id);           // Auto-deduced as int
+        int page = QUERY_PARAM(req, page);      // Auto-deduced as int
+        std::string name = QUERY_PARAM(req, name);  // Auto-deduced as string
+        
+        return ResponseBuilder::ok().data(users);
+    });
+```
+
+**Macro Expansion Principle:**
+```cpp
+#define PATH_PARAM(req, name) \
+    ({ \
+        int type = uvapi::ParamTypeRegistry::getPathParamType(#name); \
+        if (type == static_cast<int>(uvapi::ParamDataType::STRING)) req.pathParam.get<std::string>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::INT)) req.pathParam.get<int>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::INT64)) req.pathParam.get<int64_t>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::DOUBLE)) req.pathParam.get<double>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::FLOAT)) req.pathParam.get<float>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::BOOL)) req.pathParam.get<bool>(#name); \
+        else std::nullopt; \
+    })
+```
+
+### 8. Recommended Practices
+
+**Principle:** Provide clear best practices to reduce ambiguity and improve consistency.
+
+#### Parameter Access
+
+**Recommended Way (Template Parameter):**
+```cpp
+int id = req.pathParam.get<int>("id");
+int page = req.queryParam.get<int>("page");
+```
+
+**Convenient Way (Auto Type Inference):**
+```cpp
+int id = PATH_PARAM(req, id);
+int page = QUERY_PARAM(req, page);
+```
+
+#### Request Body Parsing
+
+**Only Recommended Way:**
+```cpp
+User user = req.parseBody<User>();
+```
+
+**Why Only One Way?**
+- Clear and concise: One way, no ambiguity
+- Automatic validation: Automatically calls Schema validation
+- Type safe: Compile-time type checking
+- Unified style: All APIs use the same pattern
+
+#### Schema Definition
+
+**Recommended Pattern:**
+```cpp
+// Define reusable Schema
+auto userSchema = Schema<User>()
+    .field("username", Required<std::string>()).length(3, 20)
+    .field("email", Required<std::string>()).pattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+    .field("age", OptionalWithDefault<int>(18)).range(18, 120);
+
+// Use in route
+api.post("/api/users")
+    .body(userSchema)
+    .handle([](const HttpRequest& req) -> HttpResponse {
+        User user = req.parseBody<User>();  // Automatic validation
+        return ResponseBuilder::created().data(user);
+    });
+```
+
+### 9. Method Chaining
 
 **Principle:** All methods return `ResponseBuilder&` for fluent API.
 

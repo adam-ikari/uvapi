@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-UVAPI 是一个基于 UVHTTP 构建的高性能、类型安全的 RESTful 低代码框架，采用现代 C++11 标准编写。该项目旨在提供简洁、直观的 API，让开发者能够快速构建 HTTP/1.1 和 WebSocket 服务器。
+UVAPI 是一个基于 UVHTTP 构建的高性能、类型安全的 RESTful 低代码框架，采用现代 C++11 标准编写。该项目旨在提供简洁、直观的 API，让开发者能够快速构建 HTTP/1.1 服务器。
 
 ### 核心特性
 
@@ -253,14 +253,14 @@ REQUIRED_STRING(status, status)
 框架自动解析 URL 参数和路径参数，支持类型自动转换：
 
 ```cpp
-// 查询参数（自动类型推导）
-auto page = req.query<int>("page");        // 返回 optional<int>
-auto limit = req.query<int>("limit");      // 返回 optional<int>
-auto status = req.query<std::string>("status"); // 返回 optional<string>
-auto search = req.query<std::string>("search"); // 返回 optional<string>
+// 查询参数（自动类型转换）
+auto page = req.queryParam.get<int>("page");        // 返回 optional<int>
+auto limit = req.queryParam.get<int>("limit");      // 返回 optional<int>
+auto status = req.queryParam.get<std::string>("status"); // 返回 optional<string>
+auto search = req.queryParam.get<std::string>("search"); // 返回 optional<string>
 
-// 路径参数（自动类型推导）
-auto id = req.path<int>("id");            // 返回 optional<int>
+// 路径参数（自动类型转换）
+auto id = req.pathParam.get<int>("id");            // 返回 optional<int>
 
 // 使用默认值
 int page_num = page.value_or(1);
@@ -353,8 +353,8 @@ resp.setBody(std::move(body));  // 使用移动语义，避免拷贝
 ```cpp
 HttpResponse handler(const HttpRequest& req) {
     // 1. 解析参数（框架自动完成）
-    auto id = req.path<int>("id");
-    auto name = req.query<std::string>("name");
+    auto id = req.pathParam.get<int>("id");
+    auto name = req.queryParam.get<std::string>("name");
     
     // 2. 验证参数（框架自动完成 Schema 验证）
     
@@ -488,11 +488,11 @@ uv_run(loop, UV_RUN_DEFAULT);
 
 ```cpp
 // 查询参数
-auto page = req.query<int>("page");
-auto limit = req.query<int>("limit");
+auto page = req.queryParam.get<int>("page");
+auto limit = req.queryParam.get<int>("limit");
 
 // 路径参数
-auto id = req.path<int>("id");
+auto id = req.pathParam.get<int>("id");
 ```
 
 ### 5. Schema 和验证
@@ -663,8 +663,8 @@ make
 
 ```cpp
 server.addRoute("/api/users", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
-    auto page = req.query<int>("page").value_or(1);
-    auto limit = req.query<int>("limit").value_or(10);
+    auto page = req.queryParam.get<int>("page").value_or(1);
+    auto limit = req.queryParam.get<int>("limit").value_or(10);
     // 处理逻辑...
     return HttpResponse(200)
         .setHeader("Content-Type", "application/json")
@@ -720,6 +720,134 @@ wrk -t4 -c100 -d30s http://localhost:8080/
 ab -n 10000 -c 100 http://localhost:8080/
 ```
 
+## 设计改进（2026-02）
+
+### 单线程模型设计
+
+采用单线程模型，避免锁和线程同步，简化设计：
+
+- **零开销**：无需锁和线程同步
+- **简单可靠**：避免竞态条件和死锁
+- **易于测试**：无需处理多线程问题
+- **性能优化**：直接访问类型注册表
+
+实现方式：
+```cpp
+class ParamTypeRegistry {
+    // 静态成员存储（无需 thread_local）
+    static std::map<std::string, int> path_param_types_;
+    static std::map<std::string, int> query_param_types_;
+    
+public:
+    // 编译期注册参数类型
+    template<typename T>
+    static void registerPathParam(const std::string& name) {
+        path_param_types_[name] = static_cast<int>(DataTypeCode<T>::value);
+    }
+};
+```
+
+### 参数类型推导
+
+使用模板元编程和宏实现编译期类型推导：
+
+**模板参数方式（推荐）**：
+```cpp
+int id = req.pathParam.get<int>("id");
+int page = req.queryParam.get<int>("page");
+```
+
+**自动类型推导宏（便捷）**：
+```cpp
+int id = PATH_PARAM(req, id);
+int page = QUERY_PARAM(req, page);
+```
+
+宏展开原理：
+```cpp
+#define PATH_PARAM(req, name) \
+    ({ \
+        int type = uvapi::ParamTypeRegistry::getPathParamType(#name); \
+        if (type == static_cast<int>(uvapi::ParamDataType::STRING)) req.pathParam.get<std::string>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::INT)) req.pathParam.get<int>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::INT64)) req.pathParam.get<int64_t>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::DOUBLE)) req.pathParam.get<double>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::FLOAT)) req.pathParam.get<float>(#name); \
+        else if (type == static_cast<int>(uvapi::ParamDataType::BOOL)) req.pathParam.get<bool>(#name); \
+        else std::nullopt; \
+    })
+```
+
+### Request Body 解析简化
+
+**唯一推荐方式**：
+```cpp
+User user = req.parseBody<User>();
+```
+
+**为什么只推荐一种方式**：
+1. 清晰简洁：一种方式，无歧义
+2. 自动验证：自动调用 Schema 验证
+3. 类型安全：编译期类型检查
+4. 统一风格：所有 API 使用相同模式
+5. 最佳实践：避免多种方式带来的混乱
+
+### 设计哲学更新
+
+新增核心设计原则：
+
+1. **声明式**：参数声明在前，处理函数在后
+2. **自动解析**：框架自动解析和类型转换参数
+3. **自动校验**：框架自动验证参数
+4. **单线程模型**：避免锁和线程同步，简化设计
+5. **类型推导**：使用模板和宏实现编译期类型推导
+6. **推荐方式优先**：提供清晰的最佳实践指南，减少歧义
+
+### 文档更新
+
+更新了以下文档以反映最新的设计改进：
+
+1. **docs/DSL_DESIGN.md** - 更新设计哲学，添加单线程模型、参数类型推导等内容
+2. **docs/site/design/dsl-design.md** - 更新英文版本的设计哲学
+3. **docs/site/design/index.md** - 更新设计原则
+4. **docs/DSL_USAGE.md** - 更新最佳实践
+5. **docs/site/guide/quick-start.md** - 更新快速开始指南，强调只使用 req.parseBody<T>()
+6. **docs/site/guide/request-dsl.md** - 更新请求 DSL 指南，强调推荐方式
+
 ## 总结
 
 UVAPI 是一个高性能、类型安全的 RESTful 低代码框架，采用现代 C++11 标准，基于 UVHTTP 构建。框架的核心设计原则包括零异常、声明式 DSL、自动参数解析、自动校验、RAII 资源管理、移动语义和零拷贝优化。框架已实现核心功能，包括 DSL、Server 层、HTTP 类型、参数解析、Schema 和验证、中间件、静态文件服务、TLS/SSL 支持、对象池和响应缓存等。框架的性能指标为 7,023.90 RPS（高并发 100 连接），适用于简单到中等负载的 RESTful API 服务。对于高负载、高可用、高安全要求的生产环境，还需要进一步完善测试、监控、文档等方面的内容。
+
+最新的设计改进包括：
+- 采用单线程模型，避免锁和线程同步
+- 实现真正的自动类型推导：使用 `operator[]` 语法
+  - `auto id = req.pathParam["id"]` - 无需指定类型，自动推导
+  - `auto page = req.queryParam["page"]` - 无需指定类型，自动推导
+- 简化 Request Body 解析，只推荐使用 `req.parseBody<T>()` 方法
+- 更新设计哲学，强调推荐方式优先，减少歧义
+- 更新所有相关文档，确保与实现保持一致
+
+### 参数访问方式（2026-02-28）
+
+**推荐方式：operator[]（真正的自动类型推导）**
+```cpp
+// 路径参数
+auto id = req.pathParam["id"];        // 自动推导为 int64_t
+auto slug = req.pathParam["slug"];    // 自动推导为 string
+
+// 查询参数
+auto page = req.queryParam["page"];   // 自动推导为 int
+auto status = req.queryParam["status"];  // 自动推导为 string
+auto active = req.queryParam["active"];  // 自动推导为 bool
+```
+
+**实现细节**：
+- `ParamValue` 类使用模板转换运算符 `operator U()` 支持自动类型转换
+- 转换时使用 `strtol/strtod + errno` 进行安全的类型转换
+- 支持的类型：int, int64_t, double, float, bool, string
+- 编译期类型检查，零运行时开销
+
+**优势**：
+- 真正的自动类型推导，无需重复指定类型
+- 代码最简洁，减少样板代码
+- 符合 DSL 设计哲学：描述"是什么"，而非"怎么做"

@@ -76,10 +76,10 @@ std::string buildUsersJson(const std::vector<User>& users) {
 // 1. 获取用户列表
 HttpResponse getUsers(const HttpRequest& req) {
     // 使用类型模板访问参数
-    auto page = req.query<int>("page");
-    auto limit = req.query<int>("limit");
-    auto status = req.query<std::string>("status");
-    auto search = req.query<std::string>("search");
+    auto page = req.queryParam.get<int>("page");
+    auto limit = req.queryParam.get<int>("limit");
+    auto status = req.queryParam.get<std::string>("status");
+    auto search = req.queryParam.get<std::string>("search");
     
     // 框架已自动应用默认值
     int page_num = page.value_or(1);
@@ -134,19 +134,12 @@ HttpResponse getUsers(const HttpRequest& req) {
 
 // 2. 获取用户详情
 HttpResponse getUserDetail(const HttpRequest& req) {
-    auto id = req.path<int>("id");
-    
-    if (!id.hasValue()) {
-        return HttpResponse(400)
-            .setHeader("Content-Type", "application/json")
-            .body(buildJsonResponse(400, "User ID is required"));
-    }
-    
-    int user_id = id.value();
+    // 使用 operator[] 自动类型推导
+    auto id = req.pathParam["id"];  // 自动推导为 int
     
     // 查找用户
     for (const auto& user : userDatabase) {
-        if (user.id == user_id) {
+        if (user.id == id) {
             return HttpResponse(200)
                 .setHeader("Content-Type", "application/json")
                 .body(buildJsonResponse(200, "Success", user.toJson()));
@@ -160,10 +153,10 @@ HttpResponse getUserDetail(const HttpRequest& req) {
 
 // 3. 创建用户
 HttpResponse createUser(const HttpRequest& req) {
-    auto username = req.query<std::string>("username");
-    auto email = req.query<std::string>("email");
-    auto age = req.query<int>("age");
-    auto active = req.query<bool>("active");
+    auto username = req.queryParam.get<std::string>("username");
+    auto email = req.queryParam.get<std::string>("email");
+    auto age = req.queryParam.get<int>("age");
+    auto active = req.queryParam.get<bool>("active");
     
     // 验证必需参数
     if (!username.hasValue() || username.value().empty()) {
