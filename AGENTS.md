@@ -253,18 +253,14 @@ REQUIRED_STRING(status, status)
 框架自动解析 URL 参数和路径参数，支持类型自动转换：
 
 ```cpp
-// 查询参数（自动类型转换）
-auto page = req.queryParam.get<int>("page");        // 返回 optional<int>
-auto limit = req.queryParam.get<int>("limit");      // 返回 optional<int>
-auto status = req.queryParam.get<std::string>("status"); // 返回 optional<string>
-auto search = req.queryParam.get<std::string>("search"); // 返回 optional<string>
+// 查询参数（自动类型推导）
+auto page = req.queryParam["page"];        // 自动推导为 int
+auto limit = req.queryParam["limit"];      // 自动推导为 int
+auto status = req.queryParam["status"];    // 自动推导为 string
+auto search = req.queryParam["search"];    // 自动推导为 string
 
-// 路径参数（自动类型转换）
-auto id = req.pathParam.get<int>("id");            // 返回 optional<int>
-
-// 使用默认值
-int page_num = page.value_or(1);
-int limit_num = limit.value_or(10);
+// 路径参数（自动类型推导）
+auto id = req.pathParam["id"];             // 自动推导为 int
 ```
 
 #### 4. 自动校验
@@ -353,8 +349,8 @@ resp.setBody(std::move(body));  // 使用移动语义，避免拷贝
 ```cpp
 HttpResponse handler(const HttpRequest& req) {
     // 1. 解析参数（框架自动完成）
-    auto id = req.pathParam.get<int>("id");
-    auto name = req.queryParam.get<std::string>("name");
+    auto id = req.pathParam["id"];
+    auto name = req.queryParam["name"];
     
     // 2. 验证参数（框架自动完成 Schema 验证）
     
@@ -492,7 +488,7 @@ auto page = req.queryParam.get<int>("page");
 auto limit = req.queryParam.get<int>("limit");
 
 // 路径参数
-auto id = req.pathParam.get<int>("id");
+auto id = req.pathParam["id"];
 ```
 
 ### 5. Schema 和验证
@@ -663,8 +659,8 @@ make
 
 ```cpp
 server.addRoute("/api/users", HttpMethod::GET, [](const HttpRequest& req) -> HttpResponse {
-    auto page = req.queryParam.get<int>("page").value_or(1);
-    auto limit = req.queryParam.get<int>("limit").value_or(10);
+    auto page = req.queryParam["page"];  // 默认值由 DSL 声明
+    auto limit = req.queryParam["limit"];  // 默认值由 DSL 声明
     // 处理逻辑...
     return HttpResponse(200)
         .setHeader("Content-Type", "application/json")
@@ -757,25 +753,11 @@ int id = req.pathParam.get<int>("id");
 int page = req.queryParam.get<int>("page");
 ```
 
-**自动类型推导宏（便捷）**：
+**参数访问（推荐方式）**：
 ```cpp
-int id = PATH_PARAM(req, id);
-int page = QUERY_PARAM(req, page);
-```
-
-宏展开原理：
-```cpp
-#define PATH_PARAM(req, name) \
-    ({ \
-        int type = uvapi::ParamTypeRegistry::getPathParamType(#name); \
-        if (type == static_cast<int>(uvapi::ParamDataType::STRING)) req.pathParam.get<std::string>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::INT)) req.pathParam.get<int>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::INT64)) req.pathParam.get<int64_t>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::DOUBLE)) req.pathParam.get<double>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::FLOAT)) req.pathParam.get<float>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::BOOL)) req.pathParam.get<bool>(#name); \
-        else std::nullopt; \
-    })
+int id = req.pathParam["id"];        // 自动推导为 int
+int page = req.queryParam["page"];   // 自动推导为 int
+std::string name = req.queryParam["name"];  // 自动推导为 string
 ```
 
 ### Request Body 解析简化

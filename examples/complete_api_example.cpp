@@ -75,17 +75,11 @@ std::string buildUsersJson(const std::vector<User>& users) {
 
 // 1. 获取用户列表
 HttpResponse getUsers(const HttpRequest& req) {
-    // 使用类型模板访问参数
-    auto page = req.queryParam.get<int>("page");
-    auto limit = req.queryParam.get<int>("limit");
-    auto status = req.queryParam.get<std::string>("status");
-    auto search = req.queryParam.get<std::string>("search");
-    
-    // 框架已自动应用默认值
-    int page_num = page.value_or(1);
-    int limit_num = limit.value_or(10);
-    std::string status_filter = status.value_or("active");
-    std::string search_keyword = search.value_or("");
+    // 使用 operator[] 自动类型推导
+    int page_num = req.queryParam["page"];  // 默认值由 DSL 声明
+    int limit_num = req.queryParam["limit"];  // 默认值由 DSL 声明
+    std::string status_filter = req.queryParam["status"];  // 默认值由 DSL 声明
+    std::string search_keyword = req.queryParam["search"];  // 默认值由 DSL 声明
     
     std::vector<User> filteredUsers;
     
@@ -153,10 +147,10 @@ HttpResponse getUserDetail(const HttpRequest& req) {
 
 // 3. 创建用户
 HttpResponse createUser(const HttpRequest& req) {
-    auto username = req.queryParam.get<std::string>("username");
-    auto email = req.queryParam.get<std::string>("email");
-    auto age = req.queryParam.get<int>("age");
-    auto active = req.queryParam.get<bool>("active");
+    auto username = req.queryParam["username"];
+    auto email = req.queryParam["email"];
+    auto age = req.queryParam["age"];
+    auto active = req.queryParam["active"];
     
     // 验证必需参数
     if (!username.hasValue() || username.value().empty()) {
@@ -176,8 +170,8 @@ HttpResponse createUser(const HttpRequest& req) {
     newUser.id = nextUserId++;
     newUser.username = username.value();
     newUser.email = email.value();
-    newUser.age = age.hasValue() ? age.value() : 18;
-    newUser.active = active.hasValue() ? active.value() : true;
+    newUser.age = age.hasValue() ? age : 18;
+    newUser.active = active.hasValue() ? active : true;
     
     userDatabase.push_back(newUser);
     
@@ -188,7 +182,7 @@ HttpResponse createUser(const HttpRequest& req) {
 
 // 4. 删除用户
 HttpResponse deleteUser(const HttpRequest& req) {
-    auto id = req.getInt("id");
+    auto id = req.pathParam["id"];
     
     if (!id.hasValue()) {
         return HttpResponse(400)
@@ -266,10 +260,11 @@ int main(int argc, char* argv[]) {
     std::cout << std::endl;
     
     std::cout << "Handler 参数访问（类型自动推导）：" << std::endl;
-    std::cout << "  auto page = req.getInt(\"page\");        // 自动推导为 optional<int>" << std::endl;
-    std::cout << "  auto limit = req.getInt(\"limit\");      // 自动推导为 optional<int>" << std::endl;
-    std::cout << "  auto status = req.getString(\"status\"); // 自动推导为 optional<string>" << std::endl;
-    std::cout << "  auto search = req.getString(\"search\"); // 自动推导为 optional<string>" << std::endl;
+    std::cout << "  auto page = req.queryParam[\"page\"];        // 自动推导为 int" << std::endl;
+    std::cout << "  auto limit = req.queryParam[\"limit\"];      // 自动推导为 int" << std::endl;
+    std::cout << "  auto status = req.queryParam[\"status\"];    // 自动推导为 string" << std::endl;
+    std::cout << "  auto search = req.queryParam[\"search\"];    // 自动推导为 string" << std::endl;
+    std::cout << "  auto id = req.pathParam[\"id\"];             // 自动推导为 int" << std::endl;
     std::cout << std::endl;
     
     std::cout << "示例请求：" << std::endl;

@@ -1848,6 +1848,9 @@ public:
     // 检查是否为空
     bool empty() const { return value_.empty(); }
     
+    // 获取原始字符串值
+    const std::string& value() const { return value_; }
+    
     // 隐式类型转换运算符 - 支持自动类型推导
     template<typename T>
     operator T() const {
