@@ -9,6 +9,8 @@
 #ifndef RESTFUL_FRAMEWORK_H
 #define RESTFUL_FRAMEWORK_H
 
+#include "version.h"
+
 #include <string>
 #include <map>
 #include <unordered_map>
