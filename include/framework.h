@@ -1833,12 +1833,20 @@ struct HttpResponse {
 };
 
 // 参数值包装类 - 支持自动类型推导和错误报告
+/**
+ * @brief ParamValue - 参数值包装类
+ * 
+ * 线程安全说明：
+ * - ParamValue 不是线程安全的
+ * - 同一个 ParamValue 对象不能被多个线程同时访问
+ * - 多个线程应该创建各自的 ParamValue 实例
+ */
 class ParamValue {
 private:
     std::string value_;
     bool has_value_;
-    bool conversion_error_;
-    std::string error_message_;
+    mutable bool conversion_error_;  // mutable 因为需要在 const 方法中设置
+    mutable std::string error_message_;  // mutable 因为需要在 const 方法中设置
     
     // 类型转换辅助函数 - 特化版本
     static void parseValueBool(const std::string& value, bool& result, bool& error, std::string& error_msg);
@@ -1860,8 +1868,8 @@ private:
         parseValueBool(value_, result, error, error_msg);
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return optional<T>();
         }
         
@@ -1881,8 +1889,8 @@ private:
         parseValueString(value_, result, error, error_msg);
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return optional<T>();
         }
         
@@ -1911,8 +1919,8 @@ private:
         }
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return optional<T>();
         }
         
@@ -1944,8 +1952,8 @@ private:
         }
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return optional<T>();
         }
         
@@ -1966,8 +1974,8 @@ private:
         parseValueBool(value_, result, error, error_msg);
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return T();
         }
         
@@ -1987,8 +1995,8 @@ private:
         parseValueString(value_, result, error, error_msg);
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return T();
         }
         
@@ -2017,8 +2025,8 @@ private:
         }
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return T();
         }
         
@@ -2050,8 +2058,8 @@ private:
         }
         
         if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            conversion_error_ = true;
+            error_message_ = error_msg;
             return T();
         }
         

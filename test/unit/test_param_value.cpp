@@ -87,6 +87,7 @@ TEST(ErrorState_InitialState) {
 TEST(ErrorState_AfterFailedConversion) {
     ParamValue pv("abc");
     int value = pv;
+    (void)value;  // Suppress unused variable warning
     ASSERT_TRUE(pv.hasError());
     ASSERT_FALSE(pv.errorMessage().empty());
 }
@@ -234,18 +235,21 @@ TEST(Int64Conversion_Min) {
 TEST(IntConversion_Overflow) {
     ParamValue pv("99999999999999999999");
     int64_t value = pv;
+    (void)value;  // Suppress unused variable warning
     ASSERT_TRUE(pv.hasError());
 }
 
 TEST(IntConversion_Underflow) {
     ParamValue pv("-99999999999999999999");
     int64_t value = pv;
+    (void)value;  // Suppress unused variable warning
     ASSERT_TRUE(pv.hasError());
 }
 
 TEST(IntConversion_RangeOverflow) {
     ParamValue pv("2147483648");
     int value = pv;
+    (void)value;  // Suppress unused variable warning
     ASSERT_TRUE(pv.hasError());
 }
 
@@ -408,6 +412,7 @@ TEST(Boundary_IntMin) {
 TEST(ErrorMessage_InvalidInt) {
     ParamValue pv("abc123");
     int value = pv;
+    (void)value;  // Suppress unused variable warning
     
     ASSERT_TRUE(pv.hasError());
     std::string msg = pv.errorMessage();
@@ -419,6 +424,7 @@ TEST(ErrorMessage_InvalidInt) {
 TEST(ErrorMessage_InvalidBool) {
     ParamValue pv("maybe");
     bool value = pv;
+    (void)value;  // Suppress unused variable warning
     
     ASSERT_TRUE(pv.hasError());
     std::string msg = pv.errorMessage();
