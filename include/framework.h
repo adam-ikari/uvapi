@@ -1832,15 +1832,23 @@ struct HttpResponse {
     }
 };
 
-// 参数值包装类 - 支持自动类型推导
+// 参数值包装类 - 支持自动类型推导和错误报告
 class ParamValue {
 private:
     std::string value_;
     bool has_value_;
+    bool conversion_error_;
+    std::string error_message_;
+    
+    // 类型转换辅助函数 - 特化版本
+    static void parseValueBool(const std::string& value, bool& result, bool& error, std::string& error_msg);
+    static void parseValueString(const std::string& value, std::string& result, bool& error, std::string& error_msg);
+    static void parseValueInt(const std::string& value, long long& result, bool& error, std::string& error_msg);
+    static void parseValueDouble(const std::string& value, double& result, bool& error, std::string& error_msg);
     
 public:
-    ParamValue() : value_(""), has_value_(false) {}
-    explicit ParamValue(const std::string& value) : value_(value), has_value_(true) {}
+    ParamValue() : value_(""), has_value_(false), conversion_error_(false), error_message_("") {}
+    explicit ParamValue(const std::string& value) : value_(value), has_value_(true), conversion_error_(false), error_message_("") {}
     
     // 检查是否有值
     bool hasValue() const { return has_value_; }
@@ -1848,93 +1856,228 @@ public:
     // 检查是否为空
     bool empty() const { return value_.empty(); }
     
+    // 检查是否有转换错误
+    bool hasError() const { return conversion_error_; }
+    
+    // 获取错误消息
+    const std::string& errorMessage() const { return error_message_; }
+    
     // 获取原始字符串值
     const std::string& value() const { return value_; }
     
-    // 隐式类型转换运算符 - 支持自动类型推导
+    // 显式类型转换 - 带错误检查，返回 optional
     template<typename T>
-    operator T() const {
-        return parseValue<T>(value_);
+    optional<T> as() const {
+        if (!has_value_ || conversion_error_) {
+            return optional<T>();
+        }
+        
+        T result = T();
+        bool error = false;
+        std::string error_msg;
+        
+        if constexpr (std::is_same<T, bool>::value) {
+            parseValueBool(value_, result, error, error_msg);
+        } else if constexpr (std::is_same<T, std::string>::value) {
+            parseValueString(value_, result, error, error_msg);
+        } else if constexpr (std::is_integral<T>::value && !std::is_same<T, bool>::value) {
+            long long temp_result;
+            parseValueInt(value_, temp_result, error, error_msg);
+            if (!error) {
+                // 检查是否超出目标类型的范围
+                if (temp_result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+                    temp_result > static_cast<long long>(std::numeric_limits<T>::max())) {
+                    error = true;
+                    error_msg = "Value out of range for target type: '" + value_ + "'";
+                } else {
+                    result = static_cast<T>(temp_result);
+                }
+            }
+        } else if constexpr (std::is_floating_point<T>::value) {
+            double temp_result;
+            parseValueDouble(value_, temp_result, error, error_msg);
+            if (!error) {
+                // 对于浮点数，使用 -max 作为最小值，因为 min() 返回的是最小正数
+                double type_min = -static_cast<double>(std::numeric_limits<T>::max());
+                double type_max = static_cast<double>(std::numeric_limits<T>::max());
+                
+                // 检查是否超出目标类型的范围
+                if (temp_result < type_min || temp_result > type_max) {
+                    error = true;
+                    error_msg = "Value out of range for target type: '" + value_ + "'";
+                } else {
+                    result = static_cast<T>(temp_result);
+                }
+            }
+        } else {
+            error = true;
+            error_msg = "Unsupported type conversion";
+        }
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return optional<T>();
+        }
+        
+        return optional<T>(result);
     }
     
-private:
-    // 辅助函数：安全地解析字符串值为指定类型
+    // 隐式类型转换运算符 - 支持自动类型推导（简化版，不报告错误）
     template<typename T>
-    static T parseValue(const std::string& value) {
-        // 布尔类型（必须在整数类型之前检查）
-        if (std::is_same<T, bool>::value) {
-            std::string lower = value;
-            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-            return (lower == "true" || lower == "1" || lower == "yes" || lower == "on");
+    operator T() const {
+        if (!has_value_) {
+            return T();
         }
         
-        // 字符串类型
-        if (std::is_same<T, std::string>::value) {
-            return value;
+        T result = T();
+        bool error = false;
+        std::string error_msg;
+        
+        if constexpr (std::is_same<T, bool>::value) {
+            parseValueBool(value_, result, error, error_msg);
+        } else if constexpr (std::is_same<T, std::string>::value) {
+            parseValueString(value_, result, error, error_msg);
+        } else if constexpr (std::is_integral<T>::value && !std::is_same<T, bool>::value) {
+            long long temp_result;
+            parseValueInt(value_, temp_result, error, error_msg);
+            if (!error) {
+                // 检查是否超出目标类型的范围
+                if (temp_result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+                    temp_result > static_cast<long long>(std::numeric_limits<T>::max())) {
+                    error = true;
+                    error_msg = "Value out of range for target type: '" + value_ + "'";
+                } else {
+                    result = static_cast<T>(temp_result);
+                }
+            }
+        } else if constexpr (std::is_floating_point<T>::value) {
+            double temp_result;
+            parseValueDouble(value_, temp_result, error, error_msg);
+            if (!error) {
+                // 对于浮点数，使用 -max 作为最小值，因为 min() 返回的是最小正数
+                double type_min = -static_cast<double>(std::numeric_limits<T>::max());
+                double type_max = static_cast<double>(std::numeric_limits<T>::max());
+                
+                // 检查是否超出目标类型的范围
+                if (temp_result < type_min || temp_result > type_max) {
+                    error = true;
+                    error_msg = "Value out of range for target type: '" + value_ + "'";
+                } else {
+                    result = static_cast<T>(temp_result);
+                }
+            }
+        } else {
+            error = true;
+            error_msg = "Unsupported type conversion";
         }
         
-        // 整数类型（排除 bool，因为 bool 已经在上面处理了）
-        if (std::is_integral<T>::value) {
-            if (value.empty()) {
-                return T();
-            }
-            
-            errno = 0;
-            char* endptr = nullptr;
-            long long result = strtoll(value.c_str(), &endptr, 10);
-            
-            // 检查转换是否失败
-            if (endptr == value.c_str() || *endptr != '\0') {
-                return T();
-            }
-            
-            // 检查是否溢出
-            if (errno == ERANGE) {
-                return T();
-            }
-            
-            // 检查是否超出目标类型的范围
-            if (result < static_cast<long long>(std::numeric_limits<T>::min()) ||
-                result > static_cast<long long>(std::numeric_limits<T>::max())) {
-                return T();
-            }
-            
-            return static_cast<T>(result);
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            result = T();
         }
         
-        // 浮点数类型
-        if (std::is_floating_point<T>::value) {
-            if (value.empty()) {
-                return T();
-            }
-            
-            errno = 0;
-            char* endptr = nullptr;
-            double result = strtod(value.c_str(), &endptr);
-            
-            // 检查转换是否失败
-            if (endptr == value.c_str() || *endptr != '\0') {
-                return T();
-            }
-            
-            // 检查是否溢出
-            if (errno == ERANGE) {
-                return T();
-            }
-            
-            // 检查是否超出目标类型的范围
-            if (result < static_cast<double>(std::numeric_limits<T>::min()) ||
-                result > static_cast<double>(std::numeric_limits<T>::max())) {
-                return T();
-            }
-            
-            return static_cast<T>(result);
-        }
-        
-        // 默认返回默认构造的值
-        return T();
+        return result;
     }
 };
+
+// 布尔类型转换
+inline void ParamValue::parseValueBool(const std::string& value, bool& result, bool& error, std::string& error_msg) {
+    error = false;
+    error_msg = "";
+    
+    std::string lower = value;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    
+    // 只接受 "true" 和 "false"
+    if (lower == "true") {
+        result = true;
+    } else if (lower == "false") {
+        result = false;
+    } else {
+        error = true;
+        error_msg = "Invalid boolean value: '" + value + "'. Expected 'true' or 'false'";
+        result = false;
+    }
+}
+
+// 字符串类型转换
+inline void ParamValue::parseValueString(const std::string& value, std::string& result, bool& error, std::string& error_msg) {
+    error = false;
+    error_msg = "";
+    result = value;
+}
+
+// 整数类型转换
+inline void ParamValue::parseValueInt(const std::string& value, long long& result, bool& error, std::string& error_msg) {
+    error = false;
+    error_msg = "";
+    result = 0;  // 初始化为 0
+    
+    if (value.empty()) {
+        error = true;
+        error_msg = "Empty string cannot be converted to integer";
+        return;
+    }
+    
+    errno = 0;
+    char* endptr = nullptr;
+    long long temp_result = strtoll(value.c_str(), &endptr, 10);
+    
+    // 检查转换是否失败
+    if (endptr == value.c_str() || *endptr != '\0') {
+        error = true;
+        error_msg = "Invalid integer format: '" + value + "'";
+        result = 0;
+        return;
+    }
+    
+    // 检查是否溢出
+    if (errno == ERANGE) {
+        error = true;
+        error_msg = "Integer overflow: '" + value + "'";
+        result = 0;
+        return;
+    }
+    
+    result = temp_result;
+}
+
+// 浮点数类型转换
+inline void ParamValue::parseValueDouble(const std::string& value, double& result, bool& error, std::string& error_msg) {
+    error = false;
+    error_msg = "";
+    result = 0.0;  // 初始化为 0.0
+    
+    if (value.empty()) {
+        error = true;
+        error_msg = "Empty string cannot be converted to floating point";
+        return;
+    }
+    
+    errno = 0;
+    char* endptr = nullptr;
+    double temp_result = strtod(value.c_str(), &endptr);
+    
+    // 检查转换是否失败
+    if (endptr == value.c_str() || *endptr != '\0') {
+        error = true;
+        error_msg = "Invalid floating point format: '" + value + "'";
+        result = 0.0;
+        return;
+    }
+    
+    // 检查是否溢出
+    if (errno == ERANGE) {
+        error = true;
+        error_msg = "Floating point overflow: '" + value + "'";
+        result = 0.0;
+        return;
+    }
+    
+    result = temp_result;
+}
 
 // 参数访问器
 class ParamAccessor {

@@ -349,4 +349,28 @@ target_link_libraries(test_response_builder
 
 add_test(NAME response_builder_test COMMAND test_response_builder)
 
+# ParamValue 和 ParamAccessor 测试
+add_executable(test_param_value
+    test/unit/test_param_value.cpp
+    src/framework_uvhttp.cpp
+    src/multipart.cpp
+)
+
+target_link_libraries(test_param_value
+    -Wl,--start-group
+    uvhttp
+    uv
+    llhttp
+    cjson
+    mbedtls
+    mbedx509
+    mbedcrypto
+    mimalloc
+    -Wl,--end-group
+    pthread
+    dl
+)
+
+add_test(NAME param_value_test COMMAND test_param_value)
+
 # 编译选项已在全局设置 CMAKE_CXX_FLAGS 中定义
