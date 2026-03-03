@@ -249,27 +249,34 @@ auto active = req.queryParam["active"];  // 自动推导为 bool
 - 类型安全：编译期类型检查
 - 符合 DSL 哲学：描述"是什么"，而非"怎么做"
 
-### 兼容方式：使用模板参数
+### 推荐方式：使用 operator[] 自动类型推导
 
 ```cpp
-// 字符串 → 整数
-int page = req.queryParam.get<int>("page", 1);
+// 字符串 → 整数（自动推导）
+auto page = req.queryParam["page"];
 
-// 字符串 → 64位整数
-int64_t id = req.pathParam.get<int64_t>("id");
+// 字符串 → 64位整数（自动推导）
+auto id = req.pathParam["id"];
 
-// 字符串 → 浮点数
-double price = req.queryParam.get<double>("price", 0.0);
+// 字符串 → 浮点数（自动推导）
+auto price = req.queryParam["price"];
 
-// 字符串 → 布尔值
-bool active = req.queryParam.get<bool>("active", false);
+// 字符串 → 布尔值（自动推导）
+auto active = req.queryParam["active"];
+
+// 检查类型转换是否成功
+if (page.hasError()) {
+    return HttpResponse(400)
+        .json("{\"error\":\"" + page.errorMessage() + "\"}");
+}
 ```
 
 **使用场景**：
-- 需要指定默认值时
-- 需要明确的类型转换时
+- 需要自动类型推导时
+- 需要检查转换错误时
+- 推荐在生产环境使用
 
-## 错误处理
+### 错误处理
 
 ### 验证失败自动响应
 

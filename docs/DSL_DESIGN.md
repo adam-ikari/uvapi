@@ -68,15 +68,22 @@ builder.addParam("page")    // 动作：添加参数
 api.get("/users/:id")
     .pathParam<int>("id")        // 注册 id 为 int 类型
     .handle([](const HttpRequest& req) -> HttpResponse {
-        // 编译期已知 id 是 int 类型
-        int id = req.pathParam.get<int>("id");
+        // 自动类型推导
+        auto id = req.pathParam["id"];
+        
+        // 检查类型转换是否成功
+        if (id.hasError()) {
+            return ResponseBuilder::badRequest()
+                .json("{\"error\":\"" + id.errorMessage() + "\"}");
+        }
+        
         return ResponseBuilder::ok().data(user);
     });
 ```
 
-### 自动类型推导宏
+### 自动类型推导
 
-使用 `PATH_PARAM` 和 `QUERY_PARAM` 宏实现自动类型推导：
+使用 `operator[]` 实现自动类型推导：
 
 ```cpp
 // 定义时注册类型
@@ -85,28 +92,35 @@ api.get("/users/:id")
     .queryParam<int>("page")     // 注册 page 为 int
     .queryParam<std::string>("name")  // 注册 name 为 string
     .handle([](const HttpRequest& req) -> HttpResponse {
-        // 使用宏自动推导类型
-        int id = PATH_PARAM(req, id);           // 自动推导为 int
-        int page = QUERY_PARAM(req, page);      // 自动推导为 int
-        std::string name = QUERY_PARAM(req, name);  // 自动推导为 string
+        // 使用 operator[] 自动推导类型
+        auto id = req.pathParam["id"];           // 自动推导为 int
+        auto page = req.queryParam["page"];      // 自动推导为 int
+        auto name = req.queryParam["name"];      // 自动推导为 string
+        
+        // 检查类型转换是否成功
+        if (id.hasError()) {
+            return ResponseBuilder::badRequest()
+                .json("{\"error\":\"" + id.errorMessage() + "\"}");
+        }
         
         return ResponseBuilder::ok().data(users);
     });
 ```
 
-**宏展开原理**：
+**推荐用法**：
 ```cpp
-#define PATH_PARAM(req, name) \
-    ({ \
-        int type = uvapi::ParamTypeRegistry::getPathParamType(#name); \
-        if (type == static_cast<int>(uvapi::ParamDataType::STRING)) req.pathParam.get<std::string>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::INT)) req.pathParam.get<int>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::INT64)) req.pathParam.get<int64_t>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::DOUBLE)) req.pathParam.get<double>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::FLOAT)) req.pathParam.get<float>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::BOOL)) req.pathParam.get<bool>(#name); \
-        else std::nullopt; \
-    })
+// 1. 使用 operator[] 自动类型推导
+auto id = req.pathParam["id"];  // 自动推导为 int
+
+// 2. 检查转换是否成功
+if (id.hasError()) {
+    // 返回错误响应
+    return ResponseBuilder::badRequest()
+        .json("{\"error\":\"" + id.errorMessage() + "\"}");
+}
+
+// 3. 使用转换后的值
+int user_id = id;  // 隐式转换为 int
 ```
 
 ### 单线程模型优势
@@ -120,16 +134,25 @@ api.get("/users/:id")
 
 ### 参数访问
 
-**推荐方式（模板参数）**：
+**推荐方式（operator[] 自动类型推导）**：
 ```cpp
-int id = req.pathParam.get<int>("id");
-int page = req.queryParam.get<int>("page");
+auto id = req.pathParam["id"];      // 自动推导为 int
+auto page = req.queryParam["page"];  // 自动推导为 int
+
+// 检查类型转换是否成功
+if (id.hasError()) {
+    return ResponseBuilder::badRequest()
+        .json("{\"error\":\"" + id.errorMessage() + "\"}");
+}
 ```
 
-**便捷方式（自动类型推导）**：
+**使用 optional 显式类型检查**：
 ```cpp
-int id = PATH_PARAM(req, id);
-int page = QUERY_PARAM(req, page);
+auto id = req.pathParam["id"].as<int>();
+if (id.hasValue()) {
+    int user_id = id.value();
+    // 使用 user_id
+}
 ```
 
 ### Request Body 解析

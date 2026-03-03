@@ -483,9 +483,15 @@ uv_run(loop, UV_RUN_DEFAULT);
 框架自动解析 URL 参数和路径参数：
 
 ```cpp
-// 查询参数
-auto page = req.queryParam.get<int>("page");
-auto limit = req.queryParam.get<int>("limit");
+// 查询参数（自动类型推导）
+auto page = req.queryParam["page"];
+auto limit = req.queryParam["limit"];
+
+// 检查类型转换是否成功
+if (page.hasError()) {
+    return HttpResponse(400)
+        .json("{\"error\":\"" + page.errorMessage() + "\"}");
+}
 
 // 路径参数
 auto id = req.pathParam["id"];
@@ -745,12 +751,21 @@ public:
 
 ### 参数类型推导
 
-使用模板元编程和宏实现编译期类型推导：
+使用 operator[] 实现运行时自动类型推导：
 
-**模板参数方式（推荐）**：
+**推荐方式（operator[] 自动类型推导）**：
 ```cpp
-int id = req.pathParam.get<int>("id");
-int page = req.queryParam.get<int>("page");
+auto id = req.pathParam["id"];      // 自动推导为 int
+auto page = req.queryParam["page"];  // 自动推导为 int
+
+// 检查类型转换是否成功
+if (id.hasError()) {
+    return HttpResponse(400)
+        .json("{\"error\":\"" + id.errorMessage() + "\"}");
+}
+
+// 使用转换后的值
+int user_id = id;
 ```
 
 **参数访问（推荐方式）**：

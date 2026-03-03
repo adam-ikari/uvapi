@@ -194,13 +194,20 @@ public:
 api.get("/users/:id")
     .pathParam<int>("id")        // Register id as int type
     .handle([](const HttpRequest& req) -> HttpResponse {
-        // Compile-time type knowledge
-        int id = req.pathParam.get<int>("id");
+        // Automatic type deduction
+        auto id = req.pathParam["id"];
+        
+        // Check if conversion succeeded
+        if (id.hasError()) {
+            return ResponseBuilder::badRequest()
+                .json("{\"error\":\"" + id.errorMessage() + "\"}");
+        }
+        
         return ResponseBuilder::ok().data(user);
     });
 ```
 
-**Automatic Type Inference Macros:**
+**Automatic Type Deduction with operator[]:**
 ```cpp
 // Register types when defining
 api.get("/users/:id")
@@ -208,28 +215,35 @@ api.get("/users/:id")
     .queryParam<int>("page")     // Register page as int
     .queryParam<std::string>("name")  // Register name as string
     .handle([](const HttpRequest& req) -> HttpResponse {
-        // Automatic type deduction
-        int id = PATH_PARAM(req, id);           // Auto-deduced as int
-        int page = QUERY_PARAM(req, page);      // Auto-deduced as int
-        std::string name = QUERY_PARAM(req, name);  // Auto-deduced as string
+        // Automatic type deduction with error checking
+        auto id = req.pathParam["id"];           // Auto-deduced as int
+        auto page = req.queryParam["page"];      // Auto-deduced as int
+        auto name = req.queryParam["name"];      // Auto-deduced as string
+        
+        // Check if conversion succeeded
+        if (id.hasError()) {
+            return ResponseBuilder::badRequest()
+                .json("{\"error\":\"" + id.errorMessage() + "\"}");
+        }
         
         return ResponseBuilder::ok().data(users);
     });
 ```
 
-**Macro Expansion Principle:**
+**Recommended Usage:**
 ```cpp
-#define PATH_PARAM(req, name) \
-    ({ \
-        int type = uvapi::ParamTypeRegistry::getPathParamType(#name); \
-        if (type == static_cast<int>(uvapi::ParamDataType::STRING)) req.pathParam.get<std::string>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::INT)) req.pathParam.get<int>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::INT64)) req.pathParam.get<int64_t>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::DOUBLE)) req.pathParam.get<double>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::FLOAT)) req.pathParam.get<float>(#name); \
-        else if (type == static_cast<int>(uvapi::ParamDataType::BOOL)) req.pathParam.get<bool>(#name); \
-        else std::nullopt; \
-    })
+// 1. Use operator[] for automatic type deduction
+auto id = req.pathParam["id"];  // Auto-deduced as int
+
+// 2. Check if conversion succeeded
+if (id.hasError()) {
+    // Return error response
+    return ResponseBuilder::badRequest()
+        .json("{\"error\":\"" + id.errorMessage() + "\"}");
+}
+
+// 3. Use the converted value
+int user_id = id;  // Implicit conversion to int
 ```
 
 ### 8. Recommended Practices
@@ -238,13 +252,22 @@ api.get("/users/:id")
 
 #### Parameter Access
 
-**Recommended Way (Template Parameter):**
+**Recommended Way (operator[] Auto Type Deduction):**
 ```cpp
-int id = req.pathParam.get<int>("id");
-int page = req.queryParam.get<int>("page");
+auto id = req.pathParam["id"];      // Auto-deduced as int
+auto page = req.queryParam["page"];  // Auto-deduced as int
+
+// Check if conversion succeeded
+if (id.hasError()) {
+    return ResponseBuilder::badRequest()
+        .json("{\"error\":\"" + id.errorMessage() + "\"}");
+}
+
+// Use the converted value
+int user_id = id;
 ```
 
-**Convenient Way (Auto Type Inference):**
+**Using optional for Explicit Type Checking:**
 ```cpp
 int id = PATH_PARAM(req, id);
 int page = QUERY_PARAM(req, page);

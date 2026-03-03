@@ -91,8 +91,11 @@ server.get("/users/:id", [](const HttpRequest& req) -> HttpResponse {
     // 推荐方式：使用 operator[] 自动类型推导
     auto id = req.pathParam["id"];  // 自动推导为 int64_t
     
-    // 兼容方式：使用模板参数
-    optional<int64_t> user_id = req.pathParam.get<int64_t>("id");
+    // 检查类型转换是否成功
+    if (id.hasError()) {
+        return ResponseBuilder(400)
+            .error("Invalid user ID: " + id.errorMessage());
+    }
     
     return ResponseBuilder(200)
         .success()
@@ -109,8 +112,11 @@ server.get("/users", [](const HttpRequest& req) -> HttpResponse {
     auto limit = req.queryParam["limit"];     // 自动推导为 int
     auto status = req.queryParam["status"];   // 自动推导为 string
     
-    // 兼容方式：使用模板参数
-    optional<std::string> name = req.queryParam.get<std::string>("name");
+    // 检查类型转换是否成功
+    if (page.hasError()) {
+        return ResponseBuilder(400)
+            .error("Invalid page parameter: " + page.errorMessage());
+    }
     
     return ResponseBuilder(200)
         .success()
