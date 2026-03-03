@@ -5,6 +5,13 @@ All notable changes to UVAPI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-03
+
+### Changed
+- **Example Updates**: Updated `declarative_dsl_auto_parse.cpp` to use new parameter access API
+- **Error Handling in Examples**: Added error checking with `hasError()` and `errorMessage()` in all example handlers
+- **Documentation Sync**: All examples now demonstrate proper error handling with operator[] syntax
+
 ## [1.1.0] - 2026-03-03
 
 ### Added

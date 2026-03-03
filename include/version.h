@@ -16,10 +16,10 @@
 
 #define UVAPI_VERSION_MAJOR 1
 #define UVAPI_VERSION_MINOR 1
-#define UVAPI_VERSION_PATCH 0
+#define UVAPI_VERSION_PATCH 1
 
-#define UVAPI_VERSION_STRING "1.1.0"
-#define UVAPI_VERSION_NUMBER 10100
+#define UVAPI_VERSION_STRING "1.1.1"
+#define UVAPI_VERSION_NUMBER 10101
 
 // Version helper macros
 #define UVAPI_VERSION_AT_LEAST(major, minor, patch) \

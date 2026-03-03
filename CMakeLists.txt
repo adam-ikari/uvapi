@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(uvapi VERSION 1.1.0 LANGUAGES CXX)
+project(uvapi VERSION 1.1.1 LANGUAGES CXX)
 
 # 设置构建类型
 set(CMAKE_BUILD_TYPE Release)
