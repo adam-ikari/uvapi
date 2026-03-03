@@ -22,28 +22,42 @@ int main() {
         .search(SearchParam())
         .sort(SortParam().field("created_at").order("desc"))
         .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) -> HttpResponse {
-            (void)req;
+            (void)params;  // 使用新的参数访问方式
 
-            // 参数已经自动解析和验证，可以直接使用
-            int page = std::stoi(params.at("page"));
-            int limit = std::stoi(params.at("limit"));
-            std::string search = params.at("search");
-            std::string sort = params.at("sort");
-            std::string order = params.at("order");
+            // 使用 operator[] 进行类型转换和错误检查
+            auto page = req.queryParam["page"];
+            auto limit = req.queryParam["limit"];
+            auto search = req.queryParam["search"];
+            auto sort = req.queryParam["sort"];
+            auto order = req.queryParam["order"];
+            
+            // 检查类型转换是否成功
+            if (page.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid page parameter: " + page.errorMessage() + "\"}");
+            }
+            
+            if (limit.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid limit parameter: " + limit.errorMessage() + "\"}");
+            }
 
-            std::cout << "解析的参数: page=" << page << ", limit=" << limit
-                      << ", search=" << search << ", sort=" << sort << ", order=" << order << std::endl;
+            int page_value = page;
+            int limit_value = limit;
+
+            std::cout << "解析的参数: page=" << page_value << ", limit=" << limit_value
+                      << ", search=" << search.value() << ", sort=" << sort.value() << ", order=" << order.value() << std::endl;
 
             // 构造响应
             std::string body = "{"
                 "\"code\":200,"
                 "\"message\":\"Success\","
                 "\"data\":{"
-                    "\"page\":" + std::to_string(page) + ","
-                    "\"limit\":" + std::to_string(limit) + ","
-                    "\"search\":\"" + search + "\","
-                    "\"sort\":\"" + sort + "\","
-                    "\"order\":\"" + order + "\","
+                    "\"page\":" + std::to_string(page_value) + ","
+                    "\"limit\":" + std::to_string(limit_value) + ","
+                    "\"search\":\"" + search.value() + "\","
+                    "\"sort\":\"" + sort.value() + "\","
+                    "\"order\":\"" + order.value() + "\","
                     "\"total\":100,"
                     "\"users\":[]"
                 "}"
@@ -58,8 +72,16 @@ int main() {
         .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) -> HttpResponse {
             (void)req;
 
-            // 路径参数已经自动解析
-            int user_id = std::stoi(params.at("id"));
+            // 路径参数已经自动解析，使用 operator[] 进行类型转换
+            auto id_param = req.pathParam["id"];
+            
+            // 检查类型转换是否成功
+            if (id_param.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid user ID: " + id_param.errorMessage() + "\"}");
+            }
+            
+            int user_id = id_param;
 
             std::cout << "解析的用户 ID: " << user_id << std::endl;
 
@@ -83,26 +105,41 @@ int main() {
         .param("age", OptionalWithDefault<int>(18)).range(18, 120)
         .param("active", OptionalWithDefault<bool>(true))
         .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) -> HttpResponse {
-            (void)req;
+            (void)params;  // 使用新的参数访问方式
+
+            // 使用 operator[] 进行类型转换和错误检查
+            auto username = req.queryParam["username"];
+            auto email = req.queryParam["email"];
+            auto age = req.queryParam["age"];
+            auto active = req.queryParam["active"];
+            
+            // 检查类型转换是否成功
+            if (age.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid age parameter: " + age.errorMessage() + "\"}");
+            }
+            
+            if (active.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid active parameter: " + active.errorMessage() + "\"}");
+            }
 
             // 参数已经自动验证，无需重复验证
-            std::string username = params.at("username");
-            std::string email = params.at("email");
-            int age = std::stoi(params.at("age"));
-            bool active = (params.at("active") == "true");
+            int age_value = age;
+            bool active_value = active;
 
-            std::cout << "创建用户: username=" << username << ", email=" << email
-                      << ", age=" << age << ", active=" << active << std::endl;
+            std::cout << "创建用户: username=" << username.value() << ", email=" << email.value()
+                      << ", age=" << age_value << ", active=" << active_value << std::endl;
 
             std::string body = "{"
                 "\"code\":201,"
                 "\"message\":\"User created successfully\","
                 "\"data\":{"
                     "\"id\":123,"
-                    "\"username\":\"" + username + "\","
-                    "\"email\":\"" + email + "\","
-                    "\"age\":" + std::to_string(age) + ","
-                    "\"active\":" + (active ? "true" : "false") +
+                    "\"username\":\"" + username.value() + "\","
+                    "\"email\":\"" + email.value() + "\","
+                    "\"age\":" + std::to_string(age_value) + ","
+                    "\"active\":" + (active_value ? "true" : "false") +
                 "}"
                 "}";
 
@@ -115,27 +152,42 @@ int main() {
         .dateRange("start_date", "end_date")
         .statusFilter({"pending", "paid", "shipped", "completed", "cancelled"}, "pending")
         .handleWithParams([](const HttpRequest& req, const std::map<std::string, std::string>& params) -> HttpResponse {
-            (void)req;
+            (void)params;  // 使用新的参数访问方式
 
-            int page = std::stoi(params.at("page"));
-            int limit = std::stoi(params.at("limit"));
-            std::string start_date = params.at("start_date");
-            std::string end_date = params.at("end_date");
-            std::string status = params.at("status");
+            // 使用 operator[] 进行类型转换和错误检查
+            auto page = req.queryParam["page"];
+            auto limit = req.queryParam["limit"];
+            auto start_date = req.queryParam["start_date"];
+            auto end_date = req.queryParam["end_date"];
+            auto status = req.queryParam["status"];
+            
+            // 检查类型转换是否成功
+            if (page.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid page parameter: " + page.errorMessage() + "\"}");
+            }
+            
+            if (limit.hasError()) {
+                return HttpResponse(400)
+                    .json("{\"code\":400,\"message\":\"Invalid limit parameter: " + limit.errorMessage() + "\"}");
+            }
 
-            std::cout << "查询订单: page=" << page << ", limit=" << limit
-                      << ", start_date=" << start_date << ", end_date=" << end_date
-                      << ", status=" << status << std::endl;
+            int page_value = page;
+            int limit_value = limit;
+
+            std::cout << "查询订单: page=" << page_value << ", limit=" << limit_value
+                      << ", start_date=" << start_date.value() << ", end_date=" << end_date.value()
+                      << ", status=" << status.value() << std::endl;
 
             std::string body = "{"
                 "\"code\":200,"
                 "\"message\":\"Success\","
                 "\"data\":{"
-                    "\"page\":" + std::to_string(page) + ","
-                    "\"limit\":" + std::to_string(limit) + ","
-                    "\"start_date\":\"" + start_date + "\","
-                    "\"end_date\":\"" + end_date + "\","
-                    "\"status\":\"" + status + "\","
+                    "\"page\":" + std::to_string(page_value) + ","
+                    "\"limit\":" + std::to_string(limit_value) + ","
+                    "\"start_date\":\"" + start_date.value() + "\","
+                    "\"end_date\":\"" + end_date.value() + "\","
+                    "\"status\":\"" + status.value() + "\","
                     "\"orders\":[]"
                 "}"
                 "}";
