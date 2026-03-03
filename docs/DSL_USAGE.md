@@ -277,7 +277,14 @@ api.put("/api/users/:id")
     .pathParam("id", Required<int>())
     .body(userSchema)  // 复用相同的 Schema
     .handle([](const HttpRequest& req) -> HttpResponse {
-        auto id = req.pathParam.get<int>("id");
+        auto id = req.pathParam["id"];
+        
+        // 检查类型转换是否成功
+        if (id.hasError()) {
+            return HttpResponse(400)
+                .json("{\"error\":\"" + id.errorMessage() + "\"}");
+        }
+        
         auto user = req.body<User>();
         return HttpResponse(200).json(user.toJson());
     });
@@ -360,7 +367,14 @@ api.put("/api/users/:id")
     .pathParam("id", Required<int>())
     .body(userSchema)  // 复用相同 Schema
     .handle([](const HttpRequest& req) -> HttpResponse {
-        auto id = req.pathParam.get<int>("id");
+        auto id = req.pathParam["id"];
+        
+        // 检查类型转换是否成功
+        if (id.hasError()) {
+            return HttpResponse(400)
+                .json("{\"error\":\"" + id.errorMessage() + "\"}");
+        }
+        
         auto user = req.body<User>();
         return HttpResponse(200).json(user.value().toJson());
     });
@@ -690,8 +704,8 @@ ResponseBuilder makeSuccessResponse() {
 4. **实现 toJson() 方法** - 让数据模型支持自动序列化
 5. **链式调用** - 提高代码可读性
 6. **错误处理** - 在 toJson() 中处理异常，返回错误响应
-7. **使用模板参数访问参数** - 使用 `req.pathParam.get<T>("id")` 获取参数
-8. **使用自动类型推导宏** - 使用 `PATH_PARAM` 和 `QUERY_PARAM` 宏简化代码
+7. **使用 operator[] 访问参数** - 使用 `req.pathParam["id"]` 和 `req.queryParam["key"]` 进行自动类型推导
+8. **检查参数转换错误** - 使用 `hasError()` 和 `errorMessage()` 检查类型转换是否成功
 9. **只使用 req.parseBody<T>()** - Request Body 解析只使用这一种方式
 10. **定义可复用的 Schema** - 创建可复用的 Schema 定义，在多个 API 中共享
 

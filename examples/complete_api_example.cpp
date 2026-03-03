@@ -81,6 +81,22 @@ HttpResponse getUsers(const HttpRequest& req) {
     std::string status_filter = req.queryParam["status"];  // 默认值由 DSL 声明
     std::string search_keyword = req.queryParam["search"];  // 默认值由 DSL 声明
     
+    // 检查 page 参数是否有效
+    auto page_param = req.queryParam["page"];
+    if (page_param.hasError()) {
+        return HttpResponse(400)
+            .setHeader("Content-Type", "application/json")
+            .body(buildJsonResponse(400, "Invalid page parameter: " + page_param.errorMessage()));
+    }
+    
+    // 检查 limit 参数是否有效
+    auto limit_param = req.queryParam["limit"];
+    if (limit_param.hasError()) {
+        return HttpResponse(400)
+            .setHeader("Content-Type", "application/json")
+            .body(buildJsonResponse(400, "Invalid limit parameter: " + limit_param.errorMessage()));
+    }
+    
     std::vector<User> filteredUsers;
     
     // 过滤用户
@@ -165,6 +181,20 @@ HttpResponse createUser(const HttpRequest& req) {
             .body(buildJsonResponse(400, "Email is required"));
     }
     
+    // 检查 age 参数是否有效
+    if (age.hasValue() && age.hasError()) {
+        return HttpResponse(400)
+            .setHeader("Content-Type", "application/json")
+            .body(buildJsonResponse(400, "Invalid age parameter: " + age.errorMessage()));
+    }
+    
+    // 检查 active 参数是否有效
+    if (active.hasValue() && active.hasError()) {
+        return HttpResponse(400)
+            .setHeader("Content-Type", "application/json")
+            .body(buildJsonResponse(400, "Invalid active parameter: " + active.errorMessage()));
+    }
+    
     // 创建用户
     User newUser;
     newUser.id = nextUserId++;
@@ -188,6 +218,13 @@ HttpResponse deleteUser(const HttpRequest& req) {
         return HttpResponse(400)
             .setHeader("Content-Type", "application/json")
             .body(buildJsonResponse(400, "User ID is required"));
+    }
+    
+    // 检查 ID 是否有效
+    if (id.hasError()) {
+        return HttpResponse(400)
+            .setHeader("Content-Type", "application/json")
+            .body(buildJsonResponse(400, "Invalid user ID: " + id.errorMessage()));
     }
     
     int user_id = id.value();
