@@ -1846,6 +1846,218 @@ private:
     static void parseValueInt(const std::string& value, long long& result, bool& error, std::string& error_msg);
     static void parseValueDouble(const std::string& value, double& result, bool& error, std::string& error_msg);
     
+    // 模板特化版本
+    template<typename T>
+    typename std::enable_if<std::is_same<T, bool>::value, optional<T>>::type
+    as_impl() const {
+        if (!has_value_ || conversion_error_) {
+            return optional<T>();
+        }
+        
+        T result;
+        bool error = false;
+        std::string error_msg;
+        parseValueBool(value_, result, error, error_msg);
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return optional<T>();
+        }
+        
+        return optional<T>(result);
+    }
+    
+    template<typename T>
+    typename std::enable_if<std::is_same<T, std::string>::value, optional<T>>::type
+    as_impl() const {
+        if (!has_value_ || conversion_error_) {
+            return optional<T>();
+        }
+        
+        T result;
+        bool error = false;
+        std::string error_msg;
+        parseValueString(value_, result, error, error_msg);
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return optional<T>();
+        }
+        
+        return optional<T>(result);
+    }
+    
+    template<typename T>
+    typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, optional<T>>::type
+    as_impl() const {
+        if (!has_value_ || conversion_error_) {
+            return optional<T>();
+        }
+        
+        long long temp_result;
+        bool error = false;
+        std::string error_msg;
+        parseValueInt(value_, temp_result, error, error_msg);
+        
+        if (!error) {
+            // 检查是否超出目标类型的范围
+            if (temp_result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+                temp_result > static_cast<long long>(std::numeric_limits<T>::max())) {
+                error = true;
+                error_msg = "Value out of range for target type: '" + value_ + "'";
+            }
+        }
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return optional<T>();
+        }
+        
+        return optional<T>(static_cast<T>(temp_result));
+    }
+    
+    template<typename T>
+    typename std::enable_if<std::is_floating_point<T>::value, optional<T>>::type
+    as_impl() const {
+        if (!has_value_ || conversion_error_) {
+            return optional<T>();
+        }
+        
+        double temp_result;
+        bool error = false;
+        std::string error_msg;
+        parseValueDouble(value_, temp_result, error, error_msg);
+        
+        if (!error) {
+            // 对于浮点数，使用 -max 作为最小值，因为 min() 返回的是最小正数
+            double type_min = -static_cast<double>(std::numeric_limits<T>::max());
+            double type_max = static_cast<double>(std::numeric_limits<T>::max());
+            
+            // 检查是否超出目标类型的范围
+            if (temp_result < type_min || temp_result > type_max) {
+                error = true;
+                error_msg = "Value out of range for target type: '" + value_ + "'";
+            }
+        }
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return optional<T>();
+        }
+        
+        return optional<T>(static_cast<T>(temp_result));
+    }
+    
+    // operator T() 的模板特化版本
+    template<typename T>
+    typename std::enable_if<std::is_same<T, bool>::value, T>::type
+    op_impl() const {
+        if (!has_value_) {
+            return T();
+        }
+        
+        T result;
+        bool error = false;
+        std::string error_msg;
+        parseValueBool(value_, result, error, error_msg);
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return T();
+        }
+        
+        return result;
+    }
+    
+    template<typename T>
+    typename std::enable_if<std::is_same<T, std::string>::value, T>::type
+    op_impl() const {
+        if (!has_value_) {
+            return T();
+        }
+        
+        T result;
+        bool error = false;
+        std::string error_msg;
+        parseValueString(value_, result, error, error_msg);
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return T();
+        }
+        
+        return result;
+    }
+    
+    template<typename T>
+    typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, T>::type
+    op_impl() const {
+        if (!has_value_) {
+            return T();
+        }
+        
+        long long temp_result;
+        bool error = false;
+        std::string error_msg;
+        parseValueInt(value_, temp_result, error, error_msg);
+        
+        if (!error) {
+            // 检查是否超出目标类型的范围
+            if (temp_result < static_cast<long long>(std::numeric_limits<T>::min()) ||
+                temp_result > static_cast<long long>(std::numeric_limits<T>::max())) {
+                error = true;
+                error_msg = "Value out of range for target type: '" + value_ + "'";
+            }
+        }
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return T();
+        }
+        
+        return static_cast<T>(temp_result);
+    }
+    
+    template<typename T>
+    typename std::enable_if<std::is_floating_point<T>::value, T>::type
+    op_impl() const {
+        if (!has_value_) {
+            return T();
+        }
+        
+        double temp_result;
+        bool error = false;
+        std::string error_msg;
+        parseValueDouble(value_, temp_result, error, error_msg);
+        
+        if (!error) {
+            // 对于浮点数，使用 -max 作为最小值，因为 min() 返回的是最小正数
+            double type_min = -static_cast<double>(std::numeric_limits<T>::max());
+            double type_max = static_cast<double>(std::numeric_limits<T>::max());
+            
+            // 检查是否超出目标类型的范围
+            if (temp_result < type_min || temp_result > type_max) {
+                error = true;
+                error_msg = "Value out of range for target type: '" + value_ + "'";
+            }
+        }
+        
+        if (error) {
+            const_cast<ParamValue*>(this)->conversion_error_ = true;
+            const_cast<ParamValue*>(this)->error_message_ = error_msg;
+            return T();
+        }
+        
+        return static_cast<T>(temp_result);
+    }
+    
 public:
     ParamValue() : value_(""), has_value_(false), conversion_error_(false), error_message_("") {}
     explicit ParamValue(const std::string& value) : value_(value), has_value_(true), conversion_error_(false), error_message_("") {}
@@ -1868,117 +2080,13 @@ public:
     // 显式类型转换 - 带错误检查，返回 optional
     template<typename T>
     optional<T> as() const {
-        if (!has_value_ || conversion_error_) {
-            return optional<T>();
-        }
-        
-        T result = T();
-        bool error = false;
-        std::string error_msg;
-        
-        if constexpr (std::is_same<T, bool>::value) {
-            parseValueBool(value_, result, error, error_msg);
-        } else if constexpr (std::is_same<T, std::string>::value) {
-            parseValueString(value_, result, error, error_msg);
-        } else if constexpr (std::is_integral<T>::value && !std::is_same<T, bool>::value) {
-            long long temp_result;
-            parseValueInt(value_, temp_result, error, error_msg);
-            if (!error) {
-                // 检查是否超出目标类型的范围
-                if (temp_result < static_cast<long long>(std::numeric_limits<T>::min()) ||
-                    temp_result > static_cast<long long>(std::numeric_limits<T>::max())) {
-                    error = true;
-                    error_msg = "Value out of range for target type: '" + value_ + "'";
-                } else {
-                    result = static_cast<T>(temp_result);
-                }
-            }
-        } else if constexpr (std::is_floating_point<T>::value) {
-            double temp_result;
-            parseValueDouble(value_, temp_result, error, error_msg);
-            if (!error) {
-                // 对于浮点数，使用 -max 作为最小值，因为 min() 返回的是最小正数
-                double type_min = -static_cast<double>(std::numeric_limits<T>::max());
-                double type_max = static_cast<double>(std::numeric_limits<T>::max());
-                
-                // 检查是否超出目标类型的范围
-                if (temp_result < type_min || temp_result > type_max) {
-                    error = true;
-                    error_msg = "Value out of range for target type: '" + value_ + "'";
-                } else {
-                    result = static_cast<T>(temp_result);
-                }
-            }
-        } else {
-            error = true;
-            error_msg = "Unsupported type conversion";
-        }
-        
-        if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
-            return optional<T>();
-        }
-        
-        return optional<T>(result);
+        return as_impl<T>();
     }
     
     // 隐式类型转换运算符 - 支持自动类型推导（简化版，不报告错误）
     template<typename T>
     operator T() const {
-        if (!has_value_) {
-            return T();
-        }
-        
-        T result = T();
-        bool error = false;
-        std::string error_msg;
-        
-        if constexpr (std::is_same<T, bool>::value) {
-            parseValueBool(value_, result, error, error_msg);
-        } else if constexpr (std::is_same<T, std::string>::value) {
-            parseValueString(value_, result, error, error_msg);
-        } else if constexpr (std::is_integral<T>::value && !std::is_same<T, bool>::value) {
-            long long temp_result;
-            parseValueInt(value_, temp_result, error, error_msg);
-            if (!error) {
-                // 检查是否超出目标类型的范围
-                if (temp_result < static_cast<long long>(std::numeric_limits<T>::min()) ||
-                    temp_result > static_cast<long long>(std::numeric_limits<T>::max())) {
-                    error = true;
-                    error_msg = "Value out of range for target type: '" + value_ + "'";
-                } else {
-                    result = static_cast<T>(temp_result);
-                }
-            }
-        } else if constexpr (std::is_floating_point<T>::value) {
-            double temp_result;
-            parseValueDouble(value_, temp_result, error, error_msg);
-            if (!error) {
-                // 对于浮点数，使用 -max 作为最小值，因为 min() 返回的是最小正数
-                double type_min = -static_cast<double>(std::numeric_limits<T>::max());
-                double type_max = static_cast<double>(std::numeric_limits<T>::max());
-                
-                // 检查是否超出目标类型的范围
-                if (temp_result < type_min || temp_result > type_max) {
-                    error = true;
-                    error_msg = "Value out of range for target type: '" + value_ + "'";
-                } else {
-                    result = static_cast<T>(temp_result);
-                }
-            }
-        } else {
-            error = true;
-            error_msg = "Unsupported type conversion";
-        }
-        
-        if (error) {
-            const_cast<ParamValue*>(this)->conversion_error_ = true;
-            const_cast<ParamValue*>(this)->error_message_ = error_msg;
-            result = T();
-        }
-        
-        return result;
+        return op_impl<T>();
     }
 };
 
